@@ -34,7 +34,7 @@ func TestCheckAndFixPermissions_ValidDir(t *testing.T) {
 		UdevRulesPath: dir,
 	}
 
-	err := checkAndFixPermissions(config)
+	err := checkAndFixPermissions(&config)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestCheckAndFixPermissions_CreatesDir(t *testing.T) {
 		UdevRulesPath: newDir,
 	}
 
-	err := checkAndFixPermissions(config)
+	err := checkAndFixPermissions(&config)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestCheckAndFixPermissions_FileInsteadOfDir(t *testing.T) {
 		UdevRulesPath: tmpFile.Name(),
 	}
 
-	err = checkAndFixPermissions(config)
+	err = checkAndFixPermissions(&config)
 	if err == nil {
 		t.Fatal("expected error when path is a file, not a directory")
 	}
@@ -84,7 +84,7 @@ func TestCheckAndFixPermissions_UnsafePath(t *testing.T) {
 		UdevRulesPath: "/tmp/test path with spaces",
 	}
 
-	err := checkAndFixPermissions(config)
+	err := checkAndFixPermissions(&config)
 	if err == nil {
 		t.Fatal("expected error for unsafe path")
 	}

@@ -266,7 +266,7 @@ func getCardDetails(ctx context.Context, executor *CommandExecutor, cardNumber s
 	vendorRegexp := regexp.MustCompile(`ATTRS{idVendor}=="([^"]*)"`)
 	productRegexp := regexp.MustCompile(`ATTRS{idProduct}=="([^"]*)"`)
 	serialRegexpLocal := regexp.MustCompile(`ATTRS{serial}=="([^"]*)"`)
-	busPathRegexp := regexp.MustCompile(`KERNELS=="([0-9\-\.]+)"`)
+	busPathRegexp := regexp.MustCompile(`KERNELS=="([0-9\-.]+)"`)
 	driverRegexp := regexp.MustCompile(`DRIVERS=="([^"]*)"`)
 
 	isVirtualDevice := false

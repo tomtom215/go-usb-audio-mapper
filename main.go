@@ -19,6 +19,10 @@ import (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -50,7 +54,7 @@ func main() {
 
 	if err := validateConfig(&config); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 
 	initLogger(config.LogLevel)
@@ -62,34 +66,34 @@ func main() {
 		"force", config.ForceOverwrite,
 		"ignore_virtual", config.IgnoreVirtual)
 
-	setupSignalHandling(ctx, cancel, resourceTracker, config)
+	setupSignalHandling(ctx, cancel, resourceTracker, &config)
 
 	executor := NewCommandExecutor(&config, resourceTracker)
 
 	if err := CheckCommands(); err != nil {
 		slog.Error("Command check failed", "error", err)
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 
 	elevated, err := checkElevatedPrivileges()
 	if err != nil {
 		slog.Error("Failed to check privileges", "error", err)
 		fmt.Fprintf(os.Stderr, "Error checking privileges: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 
 	if !elevated && !config.ListOnly && !config.DryRun {
 		slog.Error("Insufficient privileges", "error", ErrInsufficientPrivs)
 		fmt.Fprintf(os.Stderr, "This application requires root privileges to create udev rules.\nPlease run with sudo.\n")
-		os.Exit(1)
+		return 1
 	}
 
 	if !config.ListOnly && !config.DryRun {
-		if err := checkAndFixPermissions(config); err != nil {
+		if err := checkAndFixPermissions(&config); err != nil {
 			slog.Error("Permission check failed", "error", err)
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 	}
 
@@ -104,7 +108,6 @@ func main() {
 		}
 	}
 
-	// Check for PCI fallback serial numbers
 	hasPCISerials, err := checkPCIFallbackForSerials(ctx, executor)
 	if err != nil {
 		slog.Warn("Failed to check for PCI fallback serials", "error", err)
@@ -112,7 +115,6 @@ func main() {
 		slog.Debug("PCI fallback serial detection", "has_pci_serials", hasPCISerials)
 	}
 
-	// Detect sound system type
 	soundSystem, err := detectSoundSystemType(ctx, executor)
 	if err != nil {
 		slog.Warn("Failed to detect sound system", "error", err)
@@ -120,7 +122,6 @@ func main() {
 		slog.Info("Sound system detection", "system", soundSystem)
 	}
 
-	// Find all USB devices for reference
 	allUSBDevices, err := findAllUSBDevices(ctx, executor)
 	if err != nil {
 		slog.Error("Failed to enumerate all USB devices", "error", err)
@@ -135,7 +136,7 @@ func main() {
 		for _, err := range errs {
 			slog.Error("Error during resource cleanup", "error", err)
 		}
-		os.Exit(0)
+		return 0
 	}
 
 	cards, err := GetUSBSoundCards(ctx, executor, &config)
@@ -143,46 +144,46 @@ func main() {
 		if errors.Is(err, ErrNoUSBSoundCards) {
 			slog.Error("No USB sound cards found")
 			fmt.Println("No USB sound cards found.")
-			os.Exit(0)
+			return 0
 		}
 		slog.Error("Failed to get USB sound cards", "error", err)
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 
 	if config.ListOnly {
 		showDeviceList(cards)
-		return
+		return 0
 	}
 
 	if config.NonInteractive {
-		err := nonInteractiveMode(ctx, config, executor, fileAccess, cards)
+		err := nonInteractiveMode(ctx, &config, executor, fileAccess, cards)
 		if err != nil {
 			slog.Error("Non-interactive mode failed", "error", err)
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
-		return
+		return 0
 	}
 
 	// Interactive mode
-	result, err := runUI(ctx, cards, config, executor, fileAccess, resourceTracker)
+	result, err := runUI(ctx, cards, &config, executor, fileAccess, resourceTracker)
 	if err != nil {
 		if errors.Is(err, ErrOperationCancelled) {
 			slog.Info("Operation cancelled by user")
 			fmt.Println("Operation cancelled by user.")
-			return
+			return 0
 		}
 
 		if errors.Is(err, context.Canceled) {
 			slog.Info("Operation interrupted, shutting down")
 			fmt.Println("Operation interrupted. Shutting down...")
-			return
+			return 0
 		}
 
 		slog.Error("UI error", "error", err)
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 
 	fmt.Println(result)
@@ -198,6 +199,8 @@ func main() {
 			slog.Error("Cleanup error", "error", err)
 		}
 	}
+
+	return 0
 }
 
 // parseFlags sets up and parses command line flags into the config

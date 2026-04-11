@@ -24,7 +24,7 @@ func TestCreateUdevRule_BasicSerial(t *testing.T) {
 		Timeouts:      DefaultTimeouts,
 	}
 
-	rule, err := createUdevRule(context.Background(), card, "my_audio", config)
+	rule, err := createUdevRule(context.Background(), &card, "my_audio", &config)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestCreateUdevRule_PhysicalPort(t *testing.T) {
 		Timeouts:      DefaultTimeouts,
 	}
 
-	rule, err := createUdevRule(context.Background(), card, "", config)
+	rule, err := createUdevRule(context.Background(), &card, "", &config)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestCreateUdevRule_FallbackToVIDPID(t *testing.T) {
 		Timeouts:      DefaultTimeouts,
 	}
 
-	rule, err := createUdevRule(context.Background(), card, "my_device", config)
+	rule, err := createUdevRule(context.Background(), &card, "my_device", &config)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestCreateUdevRule_MissingVendorID(t *testing.T) {
 		Timeouts:      DefaultTimeouts,
 	}
 
-	_, err := createUdevRule(context.Background(), card, "test", config)
+	_, err := createUdevRule(context.Background(), &card, "test", &config)
 	if err == nil {
 		t.Fatal("expected error for missing vendor ID")
 	}
@@ -156,7 +156,7 @@ func TestCreateUdevRule_MissingProductID(t *testing.T) {
 		Timeouts:      DefaultTimeouts,
 	}
 
-	_, err := createUdevRule(context.Background(), card, "test", config)
+	_, err := createUdevRule(context.Background(), &card, "test", &config)
 	if err == nil {
 		t.Fatal("expected error for missing product ID")
 	}
@@ -177,7 +177,7 @@ func TestCreateUdevRule_CanceledContext(t *testing.T) {
 		Timeouts:      DefaultTimeouts,
 	}
 
-	_, err := createUdevRule(ctx, card, "test", config)
+	_, err := createUdevRule(ctx, &card, "test", &config)
 	if err == nil {
 		t.Fatal("expected error for canceled context")
 	}
@@ -199,7 +199,7 @@ func TestCreateUdevRule_VirtualDeviceNote(t *testing.T) {
 		Timeouts:      DefaultTimeouts,
 	}
 
-	rule, err := createUdevRule(context.Background(), card, "", config)
+	rule, err := createUdevRule(context.Background(), &card, "", &config)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestCreateUdevRule_CustomNameCleaned(t *testing.T) {
 		Timeouts:      DefaultTimeouts,
 	}
 
-	rule, err := createUdevRule(context.Background(), card, "my-audio.v2", config)
+	rule, err := createUdevRule(context.Background(), &card, "my-audio.v2", &config)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -255,7 +255,7 @@ func TestCreateUdevRule_PCILikeSerialUsesPort(t *testing.T) {
 		Timeouts:      DefaultTimeouts,
 	}
 
-	rule, err := createUdevRule(context.Background(), card, "test_dev", config)
+	rule, err := createUdevRule(context.Background(), &card, "test_dev", &config)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -286,7 +286,7 @@ func TestCreateUdevRule_Header(t *testing.T) {
 		Timeouts:      DefaultTimeouts,
 	}
 
-	rule, err := createUdevRule(context.Background(), card, "test", config)
+	rule, err := createUdevRule(context.Background(), &card, "test", &config)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

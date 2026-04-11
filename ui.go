@@ -153,7 +153,7 @@ type uiModel struct {
 	state           viewState
 	selectedCard    USBSoundCard
 	customName      string
-	config          Config
+	config          *Config
 	executor        *CommandExecutor
 	fileAccess      *SafeFileAccess
 	error           string
@@ -169,7 +169,7 @@ type uiModel struct {
 }
 
 // initialUIModel creates the initial UI model
-func initialUIModel(cards []USBSoundCard, config Config, executor *CommandExecutor, fileAccess *SafeFileAccess, resourceTracker *ResourceTracker) uiModel {
+func initialUIModel(cards []USBSoundCard, config *Config, executor *CommandExecutor, fileAccess *SafeFileAccess, resourceTracker *ResourceTracker) uiModel {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	items := make([]list.Item, len(cards))
@@ -351,7 +351,7 @@ func (m uiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch {
 			case key.Matches(msg, keys.Confirm):
 				return m, m.safelyPerformBackgroundOperation(func() (string, error) {
-					return performInstallation(m.ctx, m.selectedCard, m.customName, m.config, m.executor, m.fileAccess)
+					return performInstallation(m.ctx, &m.selectedCard, m.customName, m.config, m.executor, m.fileAccess)
 				})
 
 			case key.Matches(msg, keys.Back):
@@ -456,7 +456,7 @@ func (m uiModel) View() string {
 }
 
 // runUI starts the terminal UI for interactive mode
-func runUI(ctx context.Context, cards []USBSoundCard, config Config, executor *CommandExecutor, fileAccess *SafeFileAccess, resourceTracker *ResourceTracker) (string, error) {
+func runUI(ctx context.Context, cards []USBSoundCard, config *Config, executor *CommandExecutor, fileAccess *SafeFileAccess, resourceTracker *ResourceTracker) (string, error) {
 	if len(cards) == 0 {
 		return "", ErrNoUSBSoundCards
 	}

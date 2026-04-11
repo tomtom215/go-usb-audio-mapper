@@ -13,14 +13,14 @@ import (
 )
 
 // performInstallation executes the full installation pipeline for a device
-func performInstallation(ctx context.Context, card USBSoundCard, customName string, config Config, executor *CommandExecutor, fileAccess *SafeFileAccess) (string, error) {
+func performInstallation(ctx context.Context, card *USBSoundCard, customName string, config *Config, executor *CommandExecutor, fileAccess *SafeFileAccess) (string, error) {
 	rule, err := createUdevRule(ctx, card, customName, config)
 	if err != nil {
 		slog.Error("Failed to create udev rule", "error", err)
 		return "", fmt.Errorf("failed to create udev rule: %w", err)
 	}
 
-	if err := backupExistingUdevRules(&card, &config, fileAccess); err != nil {
+	if err := backupExistingUdevRules(card, config, fileAccess); err != nil {
 		slog.Warn("Failed to backup existing rules", "error", err)
 	}
 
@@ -68,7 +68,7 @@ func performInstallation(ctx context.Context, card USBSoundCard, customName stri
 }
 
 // nonInteractiveMode handles the non-interactive operation
-func nonInteractiveMode(ctx context.Context, config Config, executor *CommandExecutor, fileAccess *SafeFileAccess, cards []USBSoundCard) error {
+func nonInteractiveMode(ctx context.Context, config *Config, executor *CommandExecutor, fileAccess *SafeFileAccess, cards []USBSoundCard) error {
 	if config.VendorID == "" || config.ProductID == "" {
 		return fmt.Errorf("in non-interactive mode, --vendor-id and --product-id are required: %w", ErrInvalidDeviceParams)
 	}
@@ -84,9 +84,9 @@ func nonInteractiveMode(ctx context.Context, config Config, executor *CommandExe
 	var selectedCard USBSoundCard
 	found := false
 
-	for _, card := range cards {
-		if card.VendorID == config.VendorID && card.ProductID == config.ProductID {
-			selectedCard = card
+	for i := range cards {
+		if cards[i].VendorID == config.VendorID && cards[i].ProductID == config.ProductID {
+			selectedCard = cards[i]
 			found = true
 			break
 		}
@@ -117,7 +117,7 @@ func nonInteractiveMode(ctx context.Context, config Config, executor *CommandExe
 
 	transaction.AddOperation(
 		func() error {
-			return backupExistingUdevRules(&selectedCard, &config, fileAccess)
+			return backupExistingUdevRules(&selectedCard, config, fileAccess)
 		},
 		func() error { return nil },
 	)
@@ -126,7 +126,7 @@ func nonInteractiveMode(ctx context.Context, config Config, executor *CommandExe
 	transaction.AddOperation(
 		func() error {
 			var err error
-			rule, err = createUdevRule(ctx, selectedCard, customName, config)
+			rule, err = createUdevRule(ctx, &selectedCard, customName, config)
 			if err != nil {
 				return fmt.Errorf("failed to create udev rule: %w", err)
 			}
@@ -156,7 +156,7 @@ func nonInteractiveMode(ctx context.Context, config Config, executor *CommandExe
 	}
 
 	if !config.DryRun && !config.SkipReload {
-		success, err := verifyUdevRuleInstallation(ctx, executor, selectedCard, customName, config)
+		success, err := verifyUdevRuleInstallation(ctx, executor, &selectedCard, customName, config)
 		if err != nil {
 			if errors.Is(err, ErrDeviceDisconnected) {
 				slog.Warn("Device appears to have been disconnected. Rules were created but could not be verified.")

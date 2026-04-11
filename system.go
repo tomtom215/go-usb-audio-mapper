@@ -28,7 +28,7 @@ func checkElevatedPrivileges() (bool, error) {
 }
 
 // checkAndFixPermissions ensures the udev rules directory has the correct permissions
-func checkAndFixPermissions(config Config) error {
+func checkAndFixPermissions(config *Config) error {
 	if !pathSafeRegex.MatchString(config.UdevRulesPath) {
 		return fmt.Errorf("unsafe udev rules path: %s: %w", config.UdevRulesPath, ErrInvalidPath)
 	}
@@ -36,7 +36,7 @@ func checkAndFixPermissions(config Config) error {
 	info, err := os.Stat(config.UdevRulesPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			err = os.MkdirAll(config.UdevRulesPath, 0755)
+			err = os.MkdirAll(config.UdevRulesPath, 0o755)
 			if err != nil {
 				return fmt.Errorf("failed to create udev rules directory: %w", err)
 			}
@@ -49,9 +49,9 @@ func checkAndFixPermissions(config Config) error {
 		return fmt.Errorf("%s exists but is not a directory", config.UdevRulesPath)
 	}
 
-	if info.Mode().Perm()&0755 != 0755 {
+	if info.Mode().Perm()&0o755 != 0o755 {
 		slog.Info("Fixing permissions on rules directory", "path", config.UdevRulesPath)
-		err = os.Chmod(config.UdevRulesPath, 0755)
+		err = os.Chmod(config.UdevRulesPath, 0o755)
 		if err != nil {
 			return fmt.Errorf("failed to set permissions on udev rules directory: %w", err)
 		}
@@ -100,7 +100,7 @@ func checkPCIFallbackForSerials(ctx context.Context, executor *CommandExecutor) 
 }
 
 // setupSignalHandling sets up graceful shutdown on system signals
-func setupSignalHandling(ctx context.Context, cancel context.CancelFunc, resourceTracker *ResourceTracker, config Config) {
+func setupSignalHandling(ctx context.Context, cancel context.CancelFunc, resourceTracker *ResourceTracker, config *Config) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP,
 		syscall.SIGQUIT, syscall.SIGINT, syscall.SIGABRT)

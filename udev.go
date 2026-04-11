@@ -23,7 +23,7 @@ type UdevRule struct {
 }
 
 // createUdevRule creates a udev rule to give the sound card a persistent name
-func createUdevRule(ctx context.Context, card USBSoundCard, customName string, config Config) (*UdevRule, error) {
+func createUdevRule(ctx context.Context, card *USBSoundCard, customName string, config *Config) (*UdevRule, error) {
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -125,7 +125,7 @@ func createUdevRule(ctx context.Context, card USBSoundCard, customName string, c
 	rulePath := filepath.Join(config.UdevRulesPath, ruleFileName)
 
 	rule := &UdevRule{
-		Card:     card,
+		Card:     *card,
 		Content:  ruleBuilder.String(),
 		Path:     rulePath,
 		Name:     ruleFileName,
@@ -136,7 +136,7 @@ func createUdevRule(ctx context.Context, card USBSoundCard, customName string, c
 }
 
 // installUdevRule writes the rule to the filesystem using transactions
-func installUdevRule(ctx context.Context, rule *UdevRule, config Config, fileAccess *SafeFileAccess) error {
+func installUdevRule(ctx context.Context, rule *UdevRule, config *Config, fileAccess *SafeFileAccess) error {
 	slog.Info("Installing udev rule",
 		"device", rule.Card.String(),
 		"rule_path", rule.Path)
@@ -221,7 +221,7 @@ func installUdevRule(ctx context.Context, rule *UdevRule, config Config, fileAcc
 	// Modprobe config
 	transaction.AddOperation(
 		func() error {
-			return createModprobeConfig(rule.Card, config, fileAccess)
+			return createModprobeConfig(&rule.Card, config, fileAccess)
 		},
 		func() error { return nil },
 	)
@@ -236,7 +236,7 @@ func installUdevRule(ctx context.Context, rule *UdevRule, config Config, fileAcc
 }
 
 // createModprobeConfig creates a modprobe configuration for better device handling
-func createModprobeConfig(card USBSoundCard, config Config, fileAccess *SafeFileAccess) error {
+func createModprobeConfig(card *USBSoundCard, config *Config, fileAccess *SafeFileAccess) error {
 	modprobePath := "/etc/modprobe.d"
 	exists, err := directoryExists(modprobePath)
 	if err != nil {
@@ -277,7 +277,7 @@ func createModprobeConfig(card USBSoundCard, config Config, fileAccess *SafeFile
 }
 
 // reloadUdevRules triggers a reload of udev rules
-func reloadUdevRules(ctx context.Context, executor *CommandExecutor, config Config) error {
+func reloadUdevRules(ctx context.Context, executor *CommandExecutor, config *Config) error {
 	if config.DryRun {
 		slog.Info("Dry run mode - skipping udev rules reload")
 		return nil
@@ -341,7 +341,7 @@ func reloadUdevRules(ctx context.Context, executor *CommandExecutor, config Conf
 }
 
 // verifyUdevRuleInstallation checks if the rule is properly installed
-func verifyUdevRuleInstallation(ctx context.Context, executor *CommandExecutor, card USBSoundCard, customName string, config Config) (bool, error) {
+func verifyUdevRuleInstallation(ctx context.Context, executor *CommandExecutor, card *USBSoundCard, customName string, config *Config) (bool, error) {
 	if config.DryRun {
 		slog.Info("Dry run mode - skipping rule verification")
 		return true, nil
