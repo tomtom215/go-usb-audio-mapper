@@ -130,7 +130,7 @@ func (ce *CommandExecutor) executeCommandOnce(
 
 	cmdPath, err := exec.LookPath(command)
 	if err != nil {
-		ce.ResourceTracker.ReleaseResource(cmdID)
+		_ = ce.ResourceTracker.ReleaseResource(cmdID)
 		return "", fmt.Errorf("command not found %s: %w", command, ErrCommandNotFound)
 	}
 
@@ -154,8 +154,8 @@ func (ce *CommandExecutor) executeCommandOnce(
 
 	err = cmd.Run()
 
-	ce.ResourceTracker.ReleaseResource(cmdID)
-	ce.ResourceTracker.ReleaseResource(processID)
+	_ = ce.ResourceTracker.ReleaseResource(cmdID)
+	_ = ce.ResourceTracker.ReleaseResource(processID)
 
 	if execCtx.Err() == context.DeadlineExceeded {
 		return "", fmt.Errorf("command timed out after %s: %s %v", timeout, command, args)

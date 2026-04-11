@@ -66,12 +66,12 @@ func (sfa *SafeFileAccess) LockFile(filePath string, timeout time.Duration) (*fl
 
 	success, err := lock.TryLockContext(ctx, 100*time.Millisecond)
 	if err != nil {
-		sfa.tracker.ReleaseResource(lockID)
+		_ = sfa.tracker.ReleaseResource(lockID)
 		return nil, fmt.Errorf("failed to acquire lock: %w", err)
 	}
 
 	if !success {
-		sfa.tracker.ReleaseResource(lockID)
+		_ = sfa.tracker.ReleaseResource(lockID)
 		return nil, ErrFileLockFailed
 	}
 
@@ -105,7 +105,7 @@ func (sfa *SafeFileAccess) UnlockFile(filePath string) error {
 	delete(sfa.lockMap, absPath)
 
 	lockID := fmt.Sprintf("filelock_%s", absPath)
-	sfa.tracker.ReleaseResource(lockID)
+	_ = sfa.tracker.ReleaseResource(lockID)
 
 	return nil
 }
@@ -148,7 +148,7 @@ func atomicWriteFile(filename string, data []byte, perm fs.FileMode, fileAccess 
 	if err != nil {
 		return fmt.Errorf("failed to acquire lock on file: %w", err)
 	}
-	defer fileAccess.UnlockFile(filename)
+	defer func() { _ = fileAccess.UnlockFile(filename) }()
 
 	tempFile, err := os.CreateTemp(dir, filepath.Base(filename)+".tmp.*")
 	if err != nil {

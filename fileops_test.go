@@ -264,8 +264,8 @@ func TestSafeFileAccess_CleanupAllLocks(t *testing.T) {
 	lockFile1 := filepath.Join(dir, "test1.lock")
 	lockFile2 := filepath.Join(dir, "test2.lock")
 
-	fa.LockFile(lockFile1, 2*time.Second)
-	fa.LockFile(lockFile2, 2*time.Second)
+	_, _ = fa.LockFile(lockFile1, 2*time.Second)
+	_, _ = fa.LockFile(lockFile2, 2*time.Second)
 
 	// Should not panic or error
 	fa.CleanupAllLocks()

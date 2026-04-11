@@ -87,7 +87,7 @@ func backupExistingUdevRules(card USBSoundCard, config Config, fileAccess *SafeF
 					if err != nil {
 						return fmt.Errorf("failed to acquire lock on file during backup: %w", err)
 					}
-					defer fileAccess.UnlockFile(match)
+					defer func() { _ = fileAccess.UnlockFile(match) }()
 
 					c, err := os.ReadFile(match)
 					if err != nil {
@@ -151,7 +151,7 @@ func testUdevSystem(ctx context.Context, executor *CommandExecutor, config Confi
 			if err != nil {
 				return fmt.Errorf("failed to acquire lock on test rule file: %w", err)
 			}
-			defer fileAccess.UnlockFile(testRuleFile)
+			defer func() { _ = fileAccess.UnlockFile(testRuleFile) }()
 			return os.WriteFile(testRuleFile, []byte(testRuleContent), 0644)
 		},
 		func() error {
