@@ -173,9 +173,7 @@ func GetUSBSoundCards(ctx context.Context, executor *CommandExecutor, config *Co
 
 	scanner := bufio.NewScanner(strings.NewReader(output))
 
-	var cards []USBSoundCard
 	var errs []error
-
 	var cardNumbers []string
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -195,6 +193,7 @@ func GetUSBSoundCards(ctx context.Context, executor *CommandExecutor, config *Co
 		return nil, fmt.Errorf("error scanning aplay output: %w", err)
 	}
 
+	cards := make([]USBSoundCard, 0, len(cardNumbers))
 	for _, cardNum := range cardNumbers {
 		if ctx.Err() != nil {
 			return cards, ctx.Err()
@@ -451,7 +450,7 @@ func findAllUSBDevices(ctx context.Context, executor *CommandExecutor) (map[stri
 		line := scanner.Text()
 		matches := lsusbRegexp.FindStringSubmatch(line)
 
-		if matches != nil && len(matches) >= 6 {
+		if len(matches) >= 6 {
 			busNum := matches[1]
 			devNum := matches[2]
 			vendorID := matches[3]

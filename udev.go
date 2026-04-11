@@ -138,7 +138,7 @@ func createUdevRule(ctx context.Context, card *USBSoundCard, customName string, 
 }
 
 // installUdevRule writes the rule to the filesystem using transactions
-func installUdevRule(ctx context.Context, rule *UdevRule, config *Config, fileAccess *SafeFileAccess) error {
+func installUdevRule(_ context.Context, rule *UdevRule, config *Config, fileAccess *SafeFileAccess) error {
 	slog.Info("Installing udev rule",
 		"device", rule.Card.String(),
 		"rule_path", rule.Path)

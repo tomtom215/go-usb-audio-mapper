@@ -11,7 +11,7 @@ var (
 	ErrInsufficientPrivs    = errors.New("insufficient privileges")
 	ErrUdevSystemFailure    = errors.New("udev system test failed")
 	ErrCommandNotFound      = errors.New("required command not found")
-	ErrOperationCancelled   = errors.New("operation cancelled by user")
+	ErrOperationCanceled    = errors.New("operation canceled by user")
 	ErrDeviceNameEmpty      = errors.New("device name cannot be empty")
 	ErrInvalidDeviceParams  = errors.New("invalid device parameters")
 	ErrDeviceDisconnected   = errors.New("device disconnected during operation")

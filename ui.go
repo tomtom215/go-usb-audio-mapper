@@ -490,5 +490,5 @@ func runUI(ctx context.Context, cards []USBSoundCard, config *Config, executor *
 		return m.successMessage, nil
 	}
 
-	return "", ErrOperationCancelled
+	return "", ErrOperationCanceled
 }

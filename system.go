@@ -61,27 +61,27 @@ func checkAndFixPermissions(config *Config) error {
 }
 
 // detectSoundSystemType checks what sound system is in use
-func detectSoundSystemType(ctx context.Context, executor *CommandExecutor) (string, error) {
+func detectSoundSystemType(ctx context.Context, executor *CommandExecutor) string {
 	_, err := executor.ExecuteCommand(ctx, "pipewire", "--version")
 	if err == nil {
 		slog.Info("Detected PipeWire sound system")
-		return "pipewire", nil
+		return "pipewire"
 	}
 
 	_, err = executor.ExecuteCommand(ctx, "pulseaudio", "--version")
 	if err == nil {
 		slog.Info("Detected PulseAudio sound system")
-		return "pulseaudio", nil
+		return "pulseaudio"
 	}
 
 	_, err = executor.ExecuteCommand(ctx, "jackd", "--version")
 	if err == nil {
 		slog.Info("Detected JACK sound system")
-		return "jack", nil
+		return "jack"
 	}
 
 	slog.Info("Assuming ALSA sound system")
-	return "alsa", nil
+	return "alsa"
 }
 
 // checkPCIFallbackForSerials verifies if PCI paths are being used as serial numbers

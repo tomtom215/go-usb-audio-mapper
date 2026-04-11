@@ -115,12 +115,8 @@ func run() int {
 		slog.Debug("PCI fallback serial detection", "has_pci_serials", hasPCISerials)
 	}
 
-	soundSystem, err := detectSoundSystemType(ctx, executor)
-	if err != nil {
-		slog.Warn("Failed to detect sound system", "error", err)
-	} else {
-		slog.Info("Sound system detection", "system", soundSystem)
-	}
+	soundSystem := detectSoundSystemType(ctx, executor)
+	slog.Info("Sound system detection", "system", soundSystem)
 
 	allUSBDevices, err := findAllUSBDevices(ctx, executor)
 	if err != nil {
@@ -169,9 +165,9 @@ func run() int {
 	// Interactive mode
 	result, err := runUI(ctx, cards, &config, executor, fileAccess, resourceTracker)
 	if err != nil {
-		if errors.Is(err, ErrOperationCancelled) {
-			slog.Info("Operation cancelled by user")
-			fmt.Println("Operation cancelled by user.")
+		if errors.Is(err, ErrOperationCanceled) {
+			slog.Info("Operation canceled by user")
+			fmt.Println("Operation canceled by user.")
 			return 0
 		}
 
@@ -188,7 +184,7 @@ func run() int {
 
 	fmt.Println(result)
 
-	if !strings.Contains(result, "operation cancelled") {
+	if !strings.Contains(result, "operation canceled") {
 		fmt.Println("\nTo verify the rule files exist, run:")
 		fmt.Printf("sudo ls -l %s\n", config.UdevRulesPath)
 	}

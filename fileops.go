@@ -132,7 +132,7 @@ func (sfa *SafeFileAccess) CleanupAllLocks() {
 }
 
 // atomicWriteFile writes a file atomically using a temporary file and rename
-func atomicWriteFile(filename string, data []byte, perm fs.FileMode, fileAccess *SafeFileAccess, lockTimeout time.Duration) error {
+func atomicWriteFile(filename string, data []byte, perm fs.FileMode, fileAccess *SafeFileAccess, lockTimeout time.Duration) error { //nolint:unparam // perm is configurable by design
 	if !pathSafeRegex.MatchString(filename) {
 		return fmt.Errorf("unsafe file path: %s: %w", filename, ErrInvalidPath)
 	}
