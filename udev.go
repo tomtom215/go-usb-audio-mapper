@@ -70,25 +70,27 @@ func createUdevRule(ctx context.Context, card *USBSoundCard, customName string, 
 	ruleBuilder.WriteString("\n\n")
 
 	// Rule 1: Priority rule for ACTION=="add" with full device attributes
-	if card.Serial != "" && !strings.Contains(card.Serial, ":") {
+	switch {
+	case card.Serial != "" && !strings.Contains(card.Serial, ":"):
 		fmt.Fprintf(&ruleBuilder, "SUBSYSTEM==\"sound\", ACTION==\"add\", ATTRS{idVendor}==\"%s\", ATTRS{idProduct}==\"%s\", ATTRS{serial}==\"%s\", ATTR{id}=\"%s\"\n",
 			card.VendorID, card.ProductID, card.Serial, deviceName)
-	} else if card.PhysicalPort != "" {
+	case card.PhysicalPort != "":
 		fmt.Fprintf(&ruleBuilder, "SUBSYSTEM==\"sound\", ACTION==\"add\", ATTRS{idVendor}==\"%s\", ATTRS{idProduct}==\"%s\", KERNELS==\"%s*\", ATTR{id}=\"%s\"\n",
 			card.VendorID, card.ProductID, card.PhysicalPort, deviceName)
-	} else {
+	default:
 		fmt.Fprintf(&ruleBuilder, "SUBSYSTEM==\"sound\", ACTION==\"add\", ATTRS{idVendor}==\"%s\", ATTRS{idProduct}==\"%s\", ATTR{id}=\"%s\"\n",
 			card.VendorID, card.ProductID, deviceName)
 	}
 
 	// Rule 2: SOUND_INITIALIZED for after sound system is fully running
-	if card.Serial != "" && !strings.Contains(card.Serial, ":") {
+	switch {
+	case card.Serial != "" && !strings.Contains(card.Serial, ":"):
 		fmt.Fprintf(&ruleBuilder, "SUBSYSTEM==\"sound\", ENV{SOUND_INITIALIZED}==\"1\", ATTRS{idVendor}==\"%s\", ATTRS{idProduct}==\"%s\", ATTRS{serial}==\"%s\", ATTR{id}=\"%s\"\n",
 			card.VendorID, card.ProductID, card.Serial, deviceName)
-	} else if card.PhysicalPort != "" {
+	case card.PhysicalPort != "":
 		fmt.Fprintf(&ruleBuilder, "SUBSYSTEM==\"sound\", ENV{SOUND_INITIALIZED}==\"1\", ATTRS{idVendor}==\"%s\", ATTRS{idProduct}==\"%s\", KERNELS==\"%s*\", ATTR{id}=\"%s\"\n",
 			card.VendorID, card.ProductID, card.PhysicalPort, deviceName)
-	} else {
+	default:
 		fmt.Fprintf(&ruleBuilder, "SUBSYSTEM==\"sound\", ENV{SOUND_INITIALIZED}==\"1\", ATTRS{idVendor}==\"%s\", ATTRS{idProduct}==\"%s\", ATTR{id}=\"%s\"\n",
 			card.VendorID, card.ProductID, deviceName)
 	}
@@ -154,7 +156,7 @@ func installUdevRule(ctx context.Context, rule *UdevRule, config *Config, fileAc
 	// Directory creation
 	transaction.AddOperation(
 		func() error {
-			return os.MkdirAll(config.UdevRulesPath, 0755)
+			return os.MkdirAll(config.UdevRulesPath, 0o755)
 		},
 		func() error { return nil },
 	)
@@ -175,7 +177,7 @@ func installUdevRule(ctx context.Context, rule *UdevRule, config *Config, fileAc
 				if err != nil {
 					return fmt.Errorf("failed to read existing rule file: %w", err)
 				}
-				return atomicWriteFile(backupPath, content, 0644, fileAccess, config.Timeouts.LockAcquisition)
+				return atomicWriteFile(backupPath, content, 0o644, fileAccess, config.Timeouts.LockAcquisition)
 			},
 			func() error {
 				if backupPath != "" {
@@ -201,7 +203,7 @@ func installUdevRule(ctx context.Context, rule *UdevRule, config *Config, fileAc
 	if shouldWrite {
 		transaction.AddOperation(
 			func() error {
-				return atomicWriteFile(rule.Path, []byte(rule.Content), 0644, fileAccess, config.Timeouts.LockAcquisition)
+				return atomicWriteFile(rule.Path, []byte(rule.Content), 0o644, fileAccess, config.Timeouts.LockAcquisition)
 			},
 			func() error {
 				if backupPath != "" && exists {
@@ -209,7 +211,7 @@ func installUdevRule(ctx context.Context, rule *UdevRule, config *Config, fileAc
 					if err != nil {
 						return fmt.Errorf("failed to read backup for rollback: %w", err)
 					}
-					return atomicWriteFile(rule.Path, content, 0644, fileAccess, config.Timeouts.LockAcquisition)
+					return atomicWriteFile(rule.Path, content, 0o644, fileAccess, config.Timeouts.LockAcquisition)
 				} else if !exists {
 					return os.Remove(rule.Path)
 				}
@@ -269,7 +271,7 @@ func createModprobeConfig(card *USBSoundCard, config *Config, fileAccess *SafeFi
 		card.Vendor, card.Product))
 	contentBuilder.WriteString("options snd_usb_audio index=-2\n")
 
-	if err := atomicWriteFile(modprobeFile, []byte(contentBuilder.String()), 0644, fileAccess, config.Timeouts.LockAcquisition); err != nil {
+	if err := atomicWriteFile(modprobeFile, []byte(contentBuilder.String()), 0o644, fileAccess, config.Timeouts.LockAcquisition); err != nil {
 		return fmt.Errorf("failed to write modprobe configuration: %w", err)
 	}
 

@@ -21,7 +21,7 @@ import (
 
 // listItem represents a USB sound card in the UI list
 type listItem struct {
-	card USBSoundCard
+	card *USBSoundCard
 }
 
 func (i listItem) Title() string {
@@ -173,8 +173,8 @@ func initialUIModel(cards []USBSoundCard, config *Config, executor *CommandExecu
 	ctx, cancel := context.WithCancel(context.Background())
 
 	items := make([]list.Item, len(cards))
-	for i, card := range cards {
-		items[i] = listItem{card: card}
+	for i := range cards {
+		items[i] = listItem{card: &cards[i]}
 	}
 
 	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
@@ -292,7 +292,7 @@ func (m uiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 
-				m.selectedCard = selectedItem.card
+				m.selectedCard = *selectedItem.card
 
 				if m.selectedCard.IsVirtual {
 					m.warning = "This appears to be a virtual audio device. Continue with caution."
@@ -350,9 +350,10 @@ func (m uiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case stateConfirmation:
 			switch {
 			case key.Matches(msg, keys.Confirm):
-				return m, m.safelyPerformBackgroundOperation(func() (string, error) {
+				installCmd := m.safelyPerformBackgroundOperation(func() (string, error) {
 					return performInstallation(m.ctx, &m.selectedCard, m.customName, m.config, m.executor, m.fileAccess)
 				})
+				return m, installCmd
 
 			case key.Matches(msg, keys.Back):
 				m.state = stateNameInput
