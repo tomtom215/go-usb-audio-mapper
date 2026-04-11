@@ -107,13 +107,13 @@ func NewDeviceRegistry() *DeviceRegistry {
 }
 
 // AddDevice adds a device to the registry
-func (dr *DeviceRegistry) AddDevice(card USBSoundCard) {
+func (dr *DeviceRegistry) AddDevice(card *USBSoundCard) {
 	dr.mu.Lock()
 	defer dr.mu.Unlock()
 
 	key := dr.generateDeviceKey(card)
 	card.Detected = time.Now()
-	dr.devices[key] = card
+	dr.devices[key] = *card
 }
 
 // GetDevices returns all devices in the registry
@@ -122,15 +122,15 @@ func (dr *DeviceRegistry) GetDevices() []USBSoundCard {
 	defer dr.mu.RUnlock()
 
 	devices := make([]USBSoundCard, 0, len(dr.devices))
-	for _, device := range dr.devices {
-		devices = append(devices, device)
+	for key := range dr.devices {
+		devices = append(devices, dr.devices[key])
 	}
 
 	return devices
 }
 
 // GetDevice retrieves a specific device by key
-func (dr *DeviceRegistry) GetDevice(card USBSoundCard) (USBSoundCard, bool) {
+func (dr *DeviceRegistry) GetDevice(card *USBSoundCard) (USBSoundCard, bool) {
 	dr.mu.RLock()
 	defer dr.mu.RUnlock()
 
@@ -140,7 +140,7 @@ func (dr *DeviceRegistry) GetDevice(card USBSoundCard) (USBSoundCard, bool) {
 }
 
 // UpdateDeviceStatus updates the status of a device
-func (dr *DeviceRegistry) UpdateDeviceStatus(card USBSoundCard, status DeviceStatus) {
+func (dr *DeviceRegistry) UpdateDeviceStatus(card *USBSoundCard, status DeviceStatus) {
 	dr.mu.Lock()
 	defer dr.mu.Unlock()
 
@@ -152,7 +152,7 @@ func (dr *DeviceRegistry) UpdateDeviceStatus(card USBSoundCard, status DeviceSta
 }
 
 // generateDeviceKey creates a unique key for a device
-func (dr *DeviceRegistry) generateDeviceKey(card USBSoundCard) string {
+func (dr *DeviceRegistry) generateDeviceKey(card *USBSoundCard) string {
 	if card.Serial != "" && !strings.Contains(card.Serial, ":") {
 		return fmt.Sprintf("%s:%s:%s", card.VendorID, card.ProductID, card.Serial)
 	} else if card.PhysicalPort != "" {
@@ -163,7 +163,7 @@ func (dr *DeviceRegistry) generateDeviceKey(card USBSoundCard) string {
 }
 
 // GetUSBSoundCards detects all USB sound cards in the system
-func GetUSBSoundCards(ctx context.Context, executor *CommandExecutor, config Config) ([]USBSoundCard, error) {
+func GetUSBSoundCards(ctx context.Context, executor *CommandExecutor, config *Config) ([]USBSoundCard, error) {
 	registry := NewDeviceRegistry()
 
 	output, err := executor.ExecuteCommand(ctx, "aplay", "-l")
@@ -217,7 +217,7 @@ func GetUSBSoundCards(ctx context.Context, executor *CommandExecutor, config Con
 		}
 
 		cards = append(cards, card)
-		registry.AddDevice(card)
+		registry.AddDevice(&card)
 	}
 
 	if len(cards) == 0 && len(errs) == 0 {
@@ -241,7 +241,7 @@ func GetUSBSoundCards(ctx context.Context, executor *CommandExecutor, config Con
 }
 
 // getCardDetails gets detailed information about a sound card
-func getCardDetails(ctx context.Context, executor *CommandExecutor, cardNumber string, config Config) (USBSoundCard, error) {
+func getCardDetails(ctx context.Context, executor *CommandExecutor, cardNumber string, config *Config) (USBSoundCard, error) {
 	card := USBSoundCard{
 		CardNumber: cardNumber,
 		DevicePath: fmt.Sprintf("/dev/snd/card%s", cardNumber),
@@ -322,7 +322,7 @@ func getCardDetails(ctx context.Context, executor *CommandExecutor, cardNumber s
 
 	if card.VendorID != "" && card.ProductID != "" && ctx.Err() == nil {
 		lsusbOutput, err := executor.ExecuteCommand(ctx, "lsusb", "-d", fmt.Sprintf("%s:%s", card.VendorID, card.ProductID))
-		if err == nil && len(lsusbOutput) > 0 {
+		if err == nil && lsusbOutput != "" {
 			lsusbRegexp := regexp.MustCompile(`ID [0-9a-f]+:[0-9a-f]+ (.+)`)
 			if matches := lsusbRegexp.FindStringSubmatch(lsusbOutput); matches != nil {
 				fullName := matches[1]
@@ -346,13 +346,14 @@ func getCardDetails(ctx context.Context, executor *CommandExecutor, cardNumber s
 		card.Product = fmt.Sprintf("Audio-%s", card.ProductID)
 	}
 
-	if card.Serial != "" && !strings.Contains(card.Serial, ":") {
+	switch {
+	case card.Serial != "" && !strings.Contains(card.Serial, ":"):
 		cleanSerial := cleanupName(card.Serial)
 		card.FriendlyName = fmt.Sprintf("usb_%s_%s_%s", card.VendorID, card.ProductID, cleanSerial)
-	} else if card.PhysicalPort != "" {
+	case card.PhysicalPort != "":
 		card.FriendlyName = fmt.Sprintf("usb_%s_%s_port%s", card.VendorID, card.ProductID,
 			strings.ReplaceAll(card.PhysicalPort, "-", "_"))
-	} else {
+	default:
 		card.FriendlyName = fmt.Sprintf("usb_%s_%s_%s", card.VendorID, card.ProductID, card.CardNumber)
 	}
 
@@ -386,7 +387,7 @@ func isVirtualDriver(driver string) bool {
 func cleanupName(name string) string {
 	name = nonAlphaNumRegex.ReplaceAllString(name, "_")
 
-	if len(name) > 0 && name[0] >= '0' && name[0] <= '9' {
+	if name != "" && name[0] >= '0' && name[0] <= '9' {
 		name = "usb_" + name
 	}
 
@@ -408,26 +409,26 @@ func showDeviceList(cards []USBSoundCard) {
 	fmt.Println("USB Sound Cards:")
 	fmt.Println("---------------")
 
-	for i, card := range cards {
+	for i := range cards {
 		fmt.Printf("%d. Card %s: %s %s (VID:PID %s:%s)\n",
-			i+1, card.CardNumber, card.Vendor, card.Product, card.VendorID, card.ProductID)
+			i+1, cards[i].CardNumber, cards[i].Vendor, cards[i].Product, cards[i].VendorID, cards[i].ProductID)
 
-		if card.Serial != "" {
-			fmt.Printf("   Serial: %s\n", card.Serial)
+		if cards[i].Serial != "" {
+			fmt.Printf("   Serial: %s\n", cards[i].Serial)
 		}
 
-		if card.PhysicalPort != "" {
-			fmt.Printf("   Physical Port: %s\n", card.PhysicalPort)
+		if cards[i].PhysicalPort != "" {
+			fmt.Printf("   Physical Port: %s\n", cards[i].PhysicalPort)
 		}
 
-		if card.IsVirtual {
+		if cards[i].IsVirtual {
 			fmt.Printf("   Type: Virtual Device\n")
 		}
 
-		fmt.Printf("   Suggested Name: %s\n", card.FriendlyName)
+		fmt.Printf("   Suggested Name: %s\n", cards[i].FriendlyName)
 
-		if card.ValidationErr != nil {
-			fmt.Printf("   Validation Warning: %s\n", card.ValidationErr)
+		if cards[i].ValidationErr != nil {
+			fmt.Printf("   Validation Warning: %s\n", cards[i].ValidationErr)
 		}
 
 		fmt.Println()

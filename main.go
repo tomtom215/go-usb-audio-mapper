@@ -138,7 +138,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	cards, err := GetUSBSoundCards(ctx, executor, config)
+	cards, err := GetUSBSoundCards(ctx, executor, &config)
 	if err != nil {
 		if errors.Is(err, ErrNoUSBSoundCards) {
 			slog.Error("No USB sound cards found")

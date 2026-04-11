@@ -191,8 +191,8 @@ func TestDeviceRegistry_AddAndGetDevices(t *testing.T) {
 		Serial:     "SER002",
 	}
 
-	reg.AddDevice(card1)
-	reg.AddDevice(card2)
+	reg.AddDevice(&card1)
+	reg.AddDevice(&card2)
 
 	devices := reg.GetDevices()
 	if len(devices) != 2 {
@@ -210,9 +210,9 @@ func TestDeviceRegistry_GetDevice(t *testing.T) {
 		Serial:     "SER001",
 	}
 
-	reg.AddDevice(card)
+	reg.AddDevice(&card)
 
-	retrieved, ok := reg.GetDevice(card)
+	retrieved, ok := reg.GetDevice(&card)
 	if !ok {
 		t.Fatal("expected to find device in registry")
 	}
@@ -231,7 +231,7 @@ func TestDeviceRegistry_GetDevice_NotFound(t *testing.T) {
 		ProductID:  "5678",
 	}
 
-	_, ok := reg.GetDevice(card)
+	_, ok := reg.GetDevice(&card)
 	if ok {
 		t.Fatal("expected device not to be found in empty registry")
 	}
@@ -248,10 +248,10 @@ func TestDeviceRegistry_UpdateDeviceStatus(t *testing.T) {
 		Status:     DeviceStatusConnected,
 	}
 
-	reg.AddDevice(card)
-	reg.UpdateDeviceStatus(card, DeviceStatusDisconnected)
+	reg.AddDevice(&card)
+	reg.UpdateDeviceStatus(&card, DeviceStatusDisconnected)
 
-	retrieved, ok := reg.GetDevice(card)
+	retrieved, ok := reg.GetDevice(&card)
 	if !ok {
 		t.Fatal("expected to find device in registry")
 	}
@@ -310,7 +310,7 @@ func TestDeviceRegistry_GenerateDeviceKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			key := reg.generateDeviceKey(tt.card)
+			key := reg.generateDeviceKey(&tt.card)
 			if key != tt.expected {
 				t.Errorf("expected key %q, got %q", tt.expected, key)
 			}
