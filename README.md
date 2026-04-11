@@ -1,4 +1,14 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright 2025 Tom F. (https://github.com/tomtom215) -->
+
 # USB Soundcard Mapper
+
+[![CI](https://github.com/tomtom215/go-usb-audio-mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/tomtom215/go-usb-audio-mapper/actions/workflows/ci.yml)
+[![Security](https://github.com/tomtom215/go-usb-audio-mapper/actions/workflows/security.yml/badge.svg)](https://github.com/tomtom215/go-usb-audio-mapper/actions/workflows/security.yml)
+[![codecov](https://codecov.io/gh/tomtom215/go-usb-audio-mapper/graph/badge.svg)](https://codecov.io/gh/tomtom215/go-usb-audio-mapper)
+[![Go Report Card](https://goreportcard.com/badge/github.com/tomtom215/go-usb-audio-mapper)](https://goreportcard.com/report/github.com/tomtom215/go-usb-audio-mapper)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go](https://img.shields.io/badge/go-1.24%2B-blue.svg)](https://go.dev/)
 
 A production-grade utility for creating persistent udev mappings for USB audio devices on Linux systems.
 
@@ -13,50 +23,68 @@ This utility creates persistent udev rules that assign consistent, meaningful na
 ### Key Features
 
 - Automatic detection of USB audio devices with detailed information extraction
-- Interactive terminal UI for device selection and naming
+- Interactive terminal UI for device selection and naming (Bubble Tea)
 - Non-interactive mode for scripting and automation
-- Robust error handling and recovery mechanisms
-- Comprehensive logging with configurable verbosity
+- Transaction-based operations with automatic rollback on failure
+- Comprehensive logging with configurable verbosity (structured JSON)
 - Automatic validation and verification of applied rules
 - Support for virtual audio devices (with safety prompts)
+- Atomic file writes with file locking
 - Backup creation of existing rules
+- Graceful signal handling (SIGINT, SIGTERM)
 
 ## System Requirements
 
 - Linux system with udev (most modern distributions)
 - Required commands: `lsusb`, `aplay`, `udevadm`
 - Root privileges (for writing udev rules)
-- Go 1.17+ (for building from source)
+- Go 1.24+ (for building from source)
 
 ## Installation
 
 ### From Binary Releases
 
-Download the latest release from the GitHub releases page:
+Download the latest release from the [GitHub Releases](https://github.com/tomtom215/go-usb-audio-mapper/releases) page:
 
 ```bash
 # Download the latest release (replace X.Y.Z with the version number)
-curl -LO https://github.com/tomtom215/usb-soundcard-mapper/releases/download/vX.Y.Z/usb-soundcard-mapper
+curl -LO https://github.com/tomtom215/go-usb-audio-mapper/releases/download/vX.Y.Z/usb-soundcard-mapper_X.Y.Z_linux_amd64.tar.gz
 
-# Make it executable
-chmod +x usb-soundcard-mapper
+# Extract
+tar xzf usb-soundcard-mapper_X.Y.Z_linux_amd64.tar.gz
 
-# Move to a directory in your PATH (requires root)
-sudo mv usb-soundcard-mapper /usr/local/bin/
+# Install (requires root)
+sudo install -m 755 usb-soundcard-mapper /usr/local/bin/
 ```
 
 ### Building from Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/tomtom215/usb-soundcard-mapper.git
-cd usb-soundcard-mapper
+git clone https://github.com/tomtom215/go-usb-audio-mapper.git
+cd go-usb-audio-mapper
 
-# Build the binary
-go build -o usb-soundcard-mapper
+# Build using Make
+make build
 
-# Optionally install it to your system (requires root)
-sudo mv usb-soundcard-mapper /usr/local/bin/
+# Or build directly with Go
+go build -o usb-soundcard-mapper .
+
+# Install to system (requires root)
+sudo make install
+```
+
+### Development
+
+```bash
+# Run all checks (lint + test + build)
+make all
+
+# Run tests with coverage
+make test-cover
+
+# See all available targets
+make help
 ```
 
 ## Usage
@@ -119,9 +147,49 @@ Options:
   --dry-run                 Show what would be done without making changes
   --force                   Force overwrite existing rules and accept virtual devices
   --ignore-virtual          Ignore virtual audio devices
-  --log-level string        Log level (debug, info, warn, error) (default "info")
+  --max-backups int         Maximum number of backups to keep per device (default 10)
+  --log-level string        Log level: debug, info, warn, error (default "info")
   --command-timeout int     Command execution timeout in seconds (default 5)
+  --lock-timeout int        File lock acquisition timeout in seconds (default 2)
+  --graceful-timeout int    Graceful shutdown timeout in seconds (default 5)
   --retries int             Maximum number of retries for commands (default 3)
+```
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│  CLI (main.go)                                  │
+│  Flag parsing, orchestration, signal handling   │
+└──────────────────────┬──────────────────────────┘
+                       │
+          ┌────────────┼────────────┐
+          ▼            ▼            ▼
+┌──────────────┐ ┌──────────┐ ┌──────────────────┐
+│ Interactive  │ │  List    │ │ Non-Interactive   │
+│ UI (ui.go)   │ │  Mode   │ │ (operations.go)   │
+│ Bubble Tea   │ │         │ │ Scripting/CI      │
+└──────┬───────┘ └─────────┘ └────────┬──────────┘
+       │                              │
+       └──────────────┬───────────────┘
+                      ▼
+┌─────────────────────────────────────────────────┐
+│  Device Detection (device.go)                   │
+│  aplay -l → udevadm → lsusb → USBSoundCard     │
+└──────────────────────┬──────────────────────────┘
+                       ▼
+┌─────────────────────────────────────────────────┐
+│  Udev Rule Engine (udev.go)                     │
+│  Rule creation, installation, verification      │
+└──────────────────────┬──────────────────────────┘
+                       │
+       ┌───────────────┼───────────────┐
+       ▼               ▼               ▼
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│ Transaction │ │ Atomic File │ │  Command    │
+│ (rollback)  │ │ Writes      │ │  Executor   │
+│             │ │ (file lock) │ │  (safe exec)│
+└─────────────┘ └─────────────┘ └─────────────┘
 ```
 
 ## How It Works
@@ -139,6 +207,58 @@ Options:
    - Handles different udev event types (add, change) for robustness
 4. The rule is installed in `/etc/udev/rules.d/`
 5. Udev rules are reloaded and triggered to apply the changes
+
+## Project Status
+
+| Phase | Status |
+|-------|--------|
+| Core device detection | Done |
+| Udev rule generation (9 rule types per device) | Done |
+| Interactive terminal UI (Bubble Tea) | Done |
+| Non-interactive mode for automation | Done |
+| Transaction-based operations with rollback | Done |
+| Atomic file writes with locking | Done |
+| Command execution safety (injection prevention) | Done |
+| Signal handling and graceful shutdown | Done |
+| Modular architecture (13 files, all <500 lines) | Done |
+| Comprehensive test suite (80+ tests) | Done |
+| CI/CD pipeline (lint, test, build, release) | Done |
+| Security scanning (govulncheck) | Done |
+| Production documentation (SECURITY, CHANGELOG, ADRs) | Done |
+
+## Project Structure
+
+```
+.
+├── main.go              # Entry point, flag parsing, orchestration
+├── config.go            # Configuration types, validation, constants, regex
+├── errors.go            # Sentinel error definitions
+├── device.go            # USBSoundCard type, registry, detection, helpers
+├── command.go           # CommandExecutor, argument safety validation
+├── transaction.go       # Transaction type with atomic rollback
+├── resource.go          # ResourceTracker for lifecycle management
+├── fileops.go           # File locking, atomic writes, path helpers
+├── udev.go              # Udev rule creation, installation, verification
+├── backup.go            # Rule backup and udev system testing
+├── system.go            # Privileges, permissions, signal handling, logging
+├── ui.go                # Bubble Tea interactive terminal UI
+├── operations.go        # Installation pipeline, non-interactive mode
+├── *_test.go            # Tests (one per source file)
+├── docs/adr/            # Architecture Decision Records
+├── Makefile             # Build, test, lint targets
+├── .golangci.yml        # Linter configuration
+├── .goreleaser.yml      # Release automation config
+├── codecov.yml          # Coverage targets
+├── CHANGELOG.md         # Keep a Changelog format
+├── SECURITY.md          # Vulnerability reporting policy
+├── GOVERNANCE.md        # Project governance
+├── RELEASING.md         # Release process checklist
+├── CITATION.cff         # Software citation metadata
+└── .github/
+    ├── workflows/       # CI, coverage, security workflows
+    ├── ISSUE_TEMPLATE/  # Bug report, feature request templates
+    └── PULL_REQUEST_TEMPLATE.md
+```
 
 ## Best Practices
 
@@ -188,11 +308,9 @@ Example: `focusrite_2i2` for a Focusrite Scarlett 2i2 interface
 
 - Use `--force` to overwrite existing rules
 - Manually check for conflicting rules: `grep -r "ATTRS{idVendor}" /etc/udev/rules.d/`
-- Use `--backup-rules` to create backups before modification
+- Backups are created automatically (use `--max-backups` to control count)
 
 ### Debugging Techniques
-
-For more in-depth troubleshooting:
 
 ```bash
 # Enable debug logging
@@ -211,8 +329,6 @@ sudo udevadm monitor --environment --udev
 ## Uninstallation
 
 ### Remove Created Rules
-
-To remove specific rules created by the utility:
 
 ```bash
 # List all rules created by the utility
@@ -246,8 +362,6 @@ sudo rm /usr/local/bin/usb-soundcard-mapper
 
 ### Integration with Audio Software Setup Scripts
 
-Add to your setup scripts:
-
 ```bash
 # Map all connected USB audio devices with default names
 for device in $(usb-soundcard-mapper --list | grep VID:PID | awk '{print $3}'); do
@@ -259,15 +373,11 @@ done
 
 ### Custom Rules Directory
 
-For testing or custom installations:
-
 ```bash
 sudo usb-soundcard-mapper --rules-path /path/to/custom/rules/dir
 ```
 
 ### Handling Virtual Devices
-
-By default, the utility will warn about virtual audio devices. You can:
 
 ```bash
 # Skip virtual devices entirely
@@ -277,16 +387,14 @@ sudo usb-soundcard-mapper --ignore-virtual
 sudo usb-soundcard-mapper --force
 ```
 
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, quality gates, and PR checklist.
+
+## Security
+
+To report a vulnerability, see [SECURITY.md](SECURITY.md).
+
 ## License
 
 [MIT License](LICENSE) - See the LICENSE file for details.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
