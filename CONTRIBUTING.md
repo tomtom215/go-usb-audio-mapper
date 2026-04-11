@@ -1,6 +1,9 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright 2025 Tom F. (https://github.com/tomtom215) -->
+
 # Contributing to USB Soundcard Mapper
 
-Thank you for your interest in contributing! This guide will help you get started.
+Thank you for your interest in contributing!
 
 ## Development Setup
 
@@ -13,98 +16,121 @@ Thank you for your interest in contributing! This guide will help you get starte
 ### Building
 
 ```bash
-# Clone the repository
 git clone https://github.com/tomtom215/go-usb-audio-mapper.git
 cd go-usb-audio-mapper
 
-# Build
-make build
-
-# Run tests
-make test
-
-# Run tests with coverage
-make test-cover
-
-# Run all checks (lint + test + build)
-make all
+make build       # Build the binary
+make test        # Run tests
+make test-cover  # Run tests with coverage
+make all         # Lint + test + build
+make help        # Show all targets
 ```
+
+## Coding Standards
+
+### File Headers
+
+Every `.go` file must start with SPDX license headers:
+
+```go
+// SPDX-License-Identifier: MIT
+// Copyright 2025 Tom F. (https://github.com/tomtom215)
+```
+
+### File Size
+
+Source files should stay under **500 lines**. When a file grows past this, split it into focused modules with single responsibilities.
+
+### Error Handling
+
+- Use `fmt.Errorf("context: %w", err)` to wrap errors with context
+- Use sentinel errors (defined in `errors.go`) for specific failure cases
+- Never use `panic()` in library/production code
+- `os.Exit()` only in `main()`
+
+### Naming
+
+- Follow standard Go conventions
+- Use meaningful, descriptive names
+- Test functions: `Test{Component}_{Scenario}_{Expected}` (e.g., `TestCleanupName_StartsWithNumber_AddPrefix`)
+
+### Logging
+
+- Use `log/slog` for all log output (structured JSON)
+- Use appropriate levels: `Debug` for verbose, `Info` for normal, `Warn` for recoverable, `Error` for failures
 
 ## Project Structure
 
 ```
-.
-├── main.go           # Entry point, flag parsing, orchestration
-├── config.go         # Configuration types, validation, constants
-├── errors.go         # Sentinel error definitions
-├── device.go         # USBSoundCard type, registry, detection logic
-├── command.go        # CommandExecutor, argument validation
-├── transaction.go    # Transaction type with rollback support
-├── resource.go       # ResourceTracker for cleanup management
-├── fileops.go        # File locking, atomic writes, path helpers
-├── udev.go           # Udev rule creation, installation, verification
-├── backup.go         # Rule backup and udev system testing
-├── system.go         # Privilege checks, permissions, signal handling
-├── ui.go             # Bubble Tea terminal UI
-├── operations.go     # Installation pipeline, non-interactive mode
-├── *_test.go         # Test files (one per source file)
-├── Makefile          # Build, test, lint targets
-├── .goreleaser.yml   # Release automation
-└── .github/
-    └── workflows/
-        └── ci.yml    # CI/CD pipeline
+main.go           Entry point, flag parsing, orchestration
+config.go         Configuration types, validation, constants, regex
+errors.go         Sentinel error definitions
+device.go         USBSoundCard type, registry, detection, helpers
+command.go        CommandExecutor, argument safety validation
+transaction.go    Transaction type with atomic rollback
+resource.go       ResourceTracker for lifecycle management
+fileops.go        File locking, atomic writes, path helpers
+udev.go           Udev rule creation, installation, verification
+backup.go         Rule backup and udev system testing
+system.go         Privileges, permissions, signal handling, logging
+ui.go             Bubble Tea interactive terminal UI
+operations.go     Installation pipeline, non-interactive mode
 ```
-
-### Design Principles
-
-- **Single responsibility**: Each file has one clear purpose
-- **No file over 500 lines**: Keeps code navigable and maintainable
-- **Security first**: All inputs validated, commands sanitized, paths checked
-- **Transaction safety**: Critical operations use transactions with rollback
-- **Resource tracking**: All resources tracked for clean shutdown
-
-## Making Changes
-
-1. Create a feature branch from `main`
-2. Make your changes
-3. Ensure all tests pass: `make test`
-4. Ensure code is formatted: `gofmt -w .`
-5. Ensure vet passes: `go vet ./...`
-6. Submit a pull request
 
 ## Testing
 
-Every source file should have a corresponding `_test.go` file. When adding new functionality:
+Every source file should have a corresponding `_test.go` file.
 
-- Add unit tests for all exported functions
-- Add unit tests for important unexported functions
-- Test error paths, not just happy paths
-- Use table-driven tests where appropriate
+### Test Categories
 
-Note: Functions that require root privileges, hardware access, or a terminal UI are difficult to unit test. Focus testing on the business logic and validation paths.
+| Type | Location | Command |
+|------|----------|---------|
+| Unit tests | `*_test.go` | `go test ./...` |
+| Race detection | `*_test.go` | `go test -race ./...` |
+| Coverage | `*_test.go` | `make test-cover` |
+
+### Running Tests
 
 ```bash
-# Run all tests
-make test
-
-# Run specific test
-go test -v -run TestFunctionName ./...
-
-# Run with coverage
-make test-cover
+make test                               # All tests with race detector
+go test -v -run TestFunctionName ./...  # Specific test
+make test-cover                         # Coverage report
 ```
 
-## Code Style
+### What to Test
 
-- Follow standard Go conventions
-- Use `gofmt` for formatting
-- Use meaningful variable and function names
-- Add comments for non-obvious logic
-- Use structured logging (`slog`) for all log output
+- All exported functions
+- Important unexported functions
+- Error paths, not just happy paths
+- Use table-driven tests where appropriate
+- Functions requiring root/hardware/terminal are exempt from unit tests
+
+## Quality Gates
+
+All of the following must pass before merging:
+
+1. `gofmt -l .` produces no output
+2. `go vet ./...` passes
+3. `go test -race ./...` passes
+4. `go build ./...` succeeds
+5. No file exceeds 500 lines
+6. SPDX headers on all new files
+7. CHANGELOG.md updated for user-facing changes
+
+## PR Checklist
+
+- [ ] Code compiles cleanly
+- [ ] All tests pass with race detector
+- [ ] Code is formatted with `gofmt`
+- [ ] `go vet` passes
+- [ ] New code has tests
+- [ ] SPDX license headers on new files
+- [ ] No file exceeds 500 lines
+- [ ] CHANGELOG.md updated (if user-facing)
 
 ## Reporting Issues
 
-When reporting bugs, please include:
+When reporting bugs, include:
 
 - Go version (`go version`)
 - Linux distribution and version

@@ -1,8 +1,14 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright 2025 Tom F. (https://github.com/tomtom215) -->
+
 # USB Soundcard Mapper
 
 [![CI](https://github.com/tomtom215/go-usb-audio-mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/tomtom215/go-usb-audio-mapper/actions/workflows/ci.yml)
+[![Security](https://github.com/tomtom215/go-usb-audio-mapper/actions/workflows/security.yml/badge.svg)](https://github.com/tomtom215/go-usb-audio-mapper/actions/workflows/security.yml)
+[![codecov](https://codecov.io/gh/tomtom215/go-usb-audio-mapper/graph/badge.svg)](https://codecov.io/gh/tomtom215/go-usb-audio-mapper)
 [![Go Report Card](https://goreportcard.com/badge/github.com/tomtom215/go-usb-audio-mapper)](https://goreportcard.com/report/github.com/tomtom215/go-usb-audio-mapper)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go](https://img.shields.io/badge/go-1.22%2B-blue.svg)](https://go.dev/)
 
 A production-grade utility for creating persistent udev mappings for USB audio devices on Linux systems.
 
@@ -149,6 +155,43 @@ Options:
   --retries int             Maximum number of retries for commands (default 3)
 ```
 
+## Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│  CLI (main.go)                                  │
+│  Flag parsing, orchestration, signal handling   │
+└──────────────────────┬──────────────────────────┘
+                       │
+          ┌────────────┼────────────┐
+          ▼            ▼            ▼
+┌──────────────┐ ┌──────────┐ ┌──────────────────┐
+│ Interactive  │ │  List    │ │ Non-Interactive   │
+│ UI (ui.go)   │ │  Mode   │ │ (operations.go)   │
+│ Bubble Tea   │ │         │ │ Scripting/CI      │
+└──────┬───────┘ └─────────┘ └────────┬──────────┘
+       │                              │
+       └──────────────┬───────────────┘
+                      ▼
+┌─────────────────────────────────────────────────┐
+│  Device Detection (device.go)                   │
+│  aplay -l → udevadm → lsusb → USBSoundCard     │
+└──────────────────────┬──────────────────────────┘
+                       ▼
+┌─────────────────────────────────────────────────┐
+│  Udev Rule Engine (udev.go)                     │
+│  Rule creation, installation, verification      │
+└──────────────────────┬──────────────────────────┘
+                       │
+       ┌───────────────┼───────────────┐
+       ▼               ▼               ▼
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│ Transaction │ │ Atomic File │ │  Command    │
+│ (rollback)  │ │ Writes      │ │  Executor   │
+│             │ │ (file lock) │ │  (safe exec)│
+└─────────────┘ └─────────────┘ └─────────────┘
+```
+
 ## How It Works
 
 1. The utility detects all USB audio devices connected to your system
@@ -165,27 +208,56 @@ Options:
 4. The rule is installed in `/etc/udev/rules.d/`
 5. Udev rules are reloaded and triggered to apply the changes
 
+## Project Status
+
+| Phase | Status |
+|-------|--------|
+| Core device detection | Done |
+| Udev rule generation (9 rule types per device) | Done |
+| Interactive terminal UI (Bubble Tea) | Done |
+| Non-interactive mode for automation | Done |
+| Transaction-based operations with rollback | Done |
+| Atomic file writes with locking | Done |
+| Command execution safety (injection prevention) | Done |
+| Signal handling and graceful shutdown | Done |
+| Modular architecture (13 files, all <500 lines) | Done |
+| Comprehensive test suite (80+ tests) | Done |
+| CI/CD pipeline (lint, test, build, release) | Done |
+| Security scanning (govulncheck) | Done |
+| Production documentation (SECURITY, CHANGELOG, ADRs) | Done |
+
 ## Project Structure
 
 ```
 .
-├── main.go           # Entry point, flag parsing, orchestration
-├── config.go         # Configuration types, validation, constants, regex
-├── errors.go         # Sentinel error definitions
-├── device.go         # USBSoundCard type, registry, detection, helpers
-├── command.go        # CommandExecutor, argument safety validation
-├── transaction.go    # Transaction type with atomic rollback
-├── resource.go       # ResourceTracker for lifecycle management
-├── fileops.go        # File locking, atomic writes, path helpers
-├── udev.go           # Udev rule creation, installation, verification
-├── backup.go         # Rule backup and udev system testing
-├── system.go         # Privileges, permissions, signal handling, logging
-├── ui.go             # Bubble Tea interactive terminal UI
-├── operations.go     # Installation pipeline, non-interactive mode
-├── *_test.go         # Tests (one per source file)
-├── Makefile          # Build, test, lint targets
-├── .goreleaser.yml   # Release automation config
-└── .github/workflows/ci.yml  # CI/CD pipeline
+├── main.go              # Entry point, flag parsing, orchestration
+├── config.go            # Configuration types, validation, constants, regex
+├── errors.go            # Sentinel error definitions
+├── device.go            # USBSoundCard type, registry, detection, helpers
+├── command.go           # CommandExecutor, argument safety validation
+├── transaction.go       # Transaction type with atomic rollback
+├── resource.go          # ResourceTracker for lifecycle management
+├── fileops.go           # File locking, atomic writes, path helpers
+├── udev.go              # Udev rule creation, installation, verification
+├── backup.go            # Rule backup and udev system testing
+├── system.go            # Privileges, permissions, signal handling, logging
+├── ui.go                # Bubble Tea interactive terminal UI
+├── operations.go        # Installation pipeline, non-interactive mode
+├── *_test.go            # Tests (one per source file)
+├── docs/adr/            # Architecture Decision Records
+├── Makefile             # Build, test, lint targets
+├── .golangci.yml        # Linter configuration
+├── .goreleaser.yml      # Release automation config
+├── codecov.yml          # Coverage targets
+├── CHANGELOG.md         # Keep a Changelog format
+├── SECURITY.md          # Vulnerability reporting policy
+├── GOVERNANCE.md        # Project governance
+├── RELEASING.md         # Release process checklist
+├── CITATION.cff         # Software citation metadata
+└── .github/
+    ├── workflows/       # CI, coverage, security workflows
+    ├── ISSUE_TEMPLATE/  # Bug report, feature request templates
+    └── PULL_REQUEST_TEMPLATE.md
 ```
 
 ## Best Practices
@@ -317,7 +389,11 @@ sudo usb-soundcard-mapper --force
 
 ## Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, quality gates, and PR checklist.
+
+## Security
+
+To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
 ## License
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright 2025 Tom F. (https://github.com/tomtom215)
+
 package main
 
 import "errors"

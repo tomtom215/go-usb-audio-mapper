@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright 2025 Tom F. (https://github.com/tomtom215)
+
 // USB Soundcard Mapper
 // A robust utility for creating persistent udev mappings for USB audio devices
 // Version: 2.1.0 (production readiness release)
