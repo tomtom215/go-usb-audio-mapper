@@ -1,0 +1,155 @@
+package main
+
+import (
+	"fmt"
+	"log/slog"
+	"regexp"
+	"time"
+)
+
+// Application constants
+const (
+	AppName    = "usb-soundcard-mapper"
+	AppVersion = "2.1.0"
+
+	ExecTimeout     = 5 * time.Second
+	udevRulesDir    = "/etc/udev/rules.d"
+	maxBackupCount  = 10              // Maximum number of backups to keep per device
+	maxQueueSize    = 100             // Maximum size of operation queues
+	maxFileSize     = 1024 * 1024     // 1MB maximum file size for safety
+	gracefulTimeout = 5 * time.Second // Timeout for graceful shutdown
+)
+
+// Pre-compiled regular expressions for improved performance and safety
+var (
+	vendorIDRegex    = regexp.MustCompile(`^[0-9a-fA-F]{4}$`)
+	productIDRegex   = regexp.MustCompile(`^[0-9a-fA-F]{4}$`)
+	serialRegex      = regexp.MustCompile(`^[^<>|&;()$\r\n\t\x00]+$`)
+	unsafeCharsRegex = regexp.MustCompile(`[<>|&;()$\r\n\t\x00]`)
+	fileNameRegex    = regexp.MustCompile(`^[a-zA-Z0-9_\-\.]+$`)
+	pathSafeRegex    = regexp.MustCompile(`^[a-zA-Z0-9_\-\.\/]+$`)
+	nonAlphaNumRegex = regexp.MustCompile(`[^a-zA-Z0-9_]`)
+	cardRegex        = regexp.MustCompile(`card (\d+):.*\[(.+)\].*\[(.+)\]`)
+)
+
+// LogLevel represents the logging verbosity level
+type LogLevel string
+
+// Log level constants
+const (
+	LogLevelDebug LogLevel = "debug"
+	LogLevelInfo  LogLevel = "info"
+	LogLevelWarn  LogLevel = "warn"
+	LogLevelError LogLevel = "error"
+)
+
+// ConfigurableTimeouts holds configurable timeout values
+type ConfigurableTimeouts struct {
+	CommandExecution  time.Duration
+	RuleReloadWait    time.Duration
+	TriggerActionWait time.Duration
+	RetryInterval     time.Duration
+	GracefulShutdown  time.Duration
+	LockAcquisition   time.Duration
+}
+
+// DefaultTimeouts provides default values for timeouts
+var DefaultTimeouts = ConfigurableTimeouts{
+	CommandExecution:  5 * time.Second,
+	RuleReloadWait:    1 * time.Second,
+	TriggerActionWait: 2 * time.Second,
+	RetryInterval:     500 * time.Millisecond,
+	GracefulShutdown:  5 * time.Second,
+	LockAcquisition:   2 * time.Second,
+}
+
+// Config holds application configuration
+type Config struct {
+	UdevRulesPath   string
+	ListOnly        bool
+	NonInteractive  bool
+	DeviceName      string
+	VendorID        string
+	ProductID       string
+	LogLevel        LogLevel
+	SkipReload      bool
+	DryRun          bool
+	ConcurrencyOpts ConcurrencyOptions
+	BackupRules     bool
+	Timeouts        ConfigurableTimeouts
+	MaxRetries      int
+	ForceOverwrite  bool
+	IgnoreVirtual   bool
+	MaxBackupCount  int
+	ResourceLimits  ResourceLimits
+}
+
+// ResourceLimits defines limits to prevent resource exhaustion
+type ResourceLimits struct {
+	MaxConcurrentOps    int
+	MaxQueueSize        int
+	MaxFileSize         int64
+	MaxBackupsPerDevice int
+}
+
+// ConcurrencyOptions configures the concurrency behavior
+type ConcurrencyOptions struct {
+	MaxWorkers     int
+	OperationQueue int
+}
+
+// validateConfig validates the configuration for consistency and safety
+func validateConfig(config *Config) error {
+	// Validate UdevRulesPath
+	if !pathSafeRegex.MatchString(config.UdevRulesPath) {
+		return fmt.Errorf("unsafe udev rules path: %s: %w", config.UdevRulesPath, ErrInvalidPath)
+	}
+
+	// Make sure MaxBackupCount is reasonable
+	if config.MaxBackupCount <= 0 {
+		config.MaxBackupCount = maxBackupCount
+	}
+
+	// Set resource limits if not specified
+	if config.ResourceLimits.MaxConcurrentOps <= 0 {
+		config.ResourceLimits.MaxConcurrentOps = config.ConcurrencyOpts.MaxWorkers
+	}
+
+	if config.ResourceLimits.MaxQueueSize <= 0 {
+		config.ResourceLimits.MaxQueueSize = maxQueueSize
+	}
+
+	if config.ResourceLimits.MaxFileSize <= 0 {
+		config.ResourceLimits.MaxFileSize = maxFileSize
+	}
+
+	// Check for conflicting options
+	if config.DryRun && config.ForceOverwrite {
+		slog.Warn("Both --dry-run and --force specified; dry run takes precedence")
+	}
+
+	// If vendor ID or product ID is specified, validate their format
+	if config.VendorID != "" {
+		if !vendorIDRegex.MatchString(config.VendorID) {
+			return fmt.Errorf("invalid vendor ID format: %s: %w", config.VendorID, ErrInvalidDeviceParams)
+		}
+	}
+
+	if config.ProductID != "" {
+		if !productIDRegex.MatchString(config.ProductID) {
+			return fmt.Errorf("invalid product ID format: %s: %w", config.ProductID, ErrInvalidDeviceParams)
+		}
+	}
+
+	// Ensure LockAcquisition timeout is set
+	if config.Timeouts.LockAcquisition <= 0 {
+		config.Timeouts.LockAcquisition = DefaultTimeouts.LockAcquisition
+	}
+
+	// Ensure GracefulShutdown timeout is set
+	if config.Timeouts.GracefulShutdown <= 0 {
+		config.Timeouts.GracefulShutdown = DefaultTimeouts.GracefulShutdown
+	}
+
+	return nil
+}
