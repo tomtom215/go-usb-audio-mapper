@@ -8,7 +8,7 @@
 [![codecov](https://codecov.io/gh/tomtom215/go-usb-audio-mapper/graph/badge.svg)](https://codecov.io/gh/tomtom215/go-usb-audio-mapper)
 [![Go Report Card](https://goreportcard.com/badge/github.com/tomtom215/go-usb-audio-mapper)](https://goreportcard.com/report/github.com/tomtom215/go-usb-audio-mapper)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go](https://img.shields.io/badge/go-1.25%2B-blue.svg)](https://go.dev/)
+[![Go](https://img.shields.io/badge/go-1.24%2B-blue.svg)](https://go.dev/)
 
 A production-grade utility for creating persistent udev mappings for USB audio devices on Linux systems.
 
@@ -38,7 +38,7 @@ This utility creates persistent udev rules that assign consistent, meaningful na
 - Linux system with udev (most modern distributions)
 - Required commands: `lsusb`, `aplay`, `udevadm`
 - Root privileges (for writing udev rules)
-- Go 1.25+ (for building from source)
+- Go 1.24+ (for building from source)
 
 ## Installation
 

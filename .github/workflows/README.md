@@ -10,7 +10,7 @@
 
 ## CI Matrix
 
-- **Go versions:** 1.23, 1.24, 1.25
+- **Go versions:** 1.24, 1.25
 - **Build targets:** linux/amd64, linux/arm64, linux/arm
 - **Linters:** gofmt, go vet, golangci-lint (staticcheck, gosec, gocritic, etc.)
 

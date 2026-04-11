@@ -1,6 +1,8 @@
 module github.com/tomtom215/go-usb-audio-mapper
 
-go 1.25
+go 1.24.2
+
+toolchain go1.24.7
 
 require (
 	github.com/charmbracelet/bubbles v1.0.0
