@@ -180,7 +180,7 @@ func GetUSBSoundCards(ctx context.Context, executor *CommandExecutor, config *Co
 	for scanner.Scan() {
 		line := scanner.Text()
 		matches := cardRegex.FindStringSubmatch(line)
-		if matches != nil && len(matches) >= 4 {
+		if len(matches) >= 4 {
 			cardNumber := matches[1]
 
 			if !strings.Contains(strings.ToLower(line), "usb") {

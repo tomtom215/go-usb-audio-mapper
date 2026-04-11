@@ -137,7 +137,7 @@ func TestAtomicWriteFile_Success(t *testing.T) {
 	fa := NewSafeFileAccess(rt)
 	target := filepath.Join(dir, "testfile.txt")
 
-	err := atomicWriteFile(target, []byte("hello world"), 0644, fa, 2*time.Second)
+	err := atomicWriteFile(target, []byte("hello world"), 0o644, fa, 2*time.Second)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -156,8 +156,8 @@ func TestAtomicWriteFile_Success(t *testing.T) {
 		t.Fatalf("failed to stat file: %v", err)
 	}
 
-	if info.Mode().Perm() != 0644 {
-		t.Errorf("expected permissions 0644, got %o", info.Mode().Perm())
+	if info.Mode().Perm() != 0o644 {
+		t.Errorf("expected permissions 0o644, got %o", info.Mode().Perm())
 	}
 }
 
@@ -168,13 +168,13 @@ func TestAtomicWriteFile_Overwrite(t *testing.T) {
 	target := filepath.Join(dir, "testfile.txt")
 
 	// Write initial content
-	err := atomicWriteFile(target, []byte("initial"), 0644, fa, 2*time.Second)
+	err := atomicWriteFile(target, []byte("initial"), 0o644, fa, 2*time.Second)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	// Overwrite
-	err = atomicWriteFile(target, []byte("updated"), 0644, fa, 2*time.Second)
+	err = atomicWriteFile(target, []byte("updated"), 0o644, fa, 2*time.Second)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestAtomicWriteFile_UnsafePath(t *testing.T) {
 	rt := NewResourceTracker()
 	fa := NewSafeFileAccess(rt)
 
-	err := atomicWriteFile("/tmp/test file", []byte("data"), 0644, fa, 2*time.Second)
+	err := atomicWriteFile("/tmp/test file", []byte("data"), 0o644, fa, 2*time.Second)
 	if err == nil {
 		t.Fatal("expected error for unsafe path")
 	}
@@ -208,7 +208,7 @@ func TestAtomicWriteFile_ExceedsMaxSize(t *testing.T) {
 	// Create data larger than maxFileSize
 	bigData := make([]byte, maxFileSize+1)
 
-	err := atomicWriteFile(target, bigData, 0644, fa, 2*time.Second)
+	err := atomicWriteFile(target, bigData, 0o644, fa, 2*time.Second)
 	if err == nil {
 		t.Fatal("expected error for oversized file")
 	}

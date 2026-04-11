@@ -206,7 +206,7 @@ func initialUIModel(cards []USBSoundCard, config *Config, executor *CommandExecu
 }
 
 // Init implements tea.Model
-func (m uiModel) Init() tea.Cmd {
+func (m uiModel) Init() tea.Cmd { //nolint:gocritic // tea.Model interface requires value receiver
 	return nil
 }
 
@@ -243,7 +243,7 @@ func (m *uiModel) safelyPerformBackgroundOperation(operation func() (string, err
 }
 
 // Update handles user input and state transitions
-func (m uiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m uiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocritic // tea.Model interface requires value receiver
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
@@ -272,8 +272,7 @@ func (m uiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		switch {
-		case key.Matches(msg, keys.Quit):
+		if key.Matches(msg, keys.Quit) {
 			slog.Debug("User quit application")
 			m.cancel()
 			m.uiClosed = true
@@ -282,8 +281,7 @@ func (m uiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch m.state {
 		case stateCardSelect:
-			switch {
-			case key.Matches(msg, keys.Enter):
+			if key.Matches(msg, keys.Enter) {
 				selectedItem, ok := m.list.SelectedItem().(listItem)
 				if !ok || len(m.cards) == 0 {
 					slog.Error("No card selected or no cards available")
@@ -376,7 +374,7 @@ func (m uiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View renders the UI based on current state
-func (m uiModel) View() string {
+func (m uiModel) View() string { //nolint:gocritic // tea.Model interface requires value receiver
 	var sb strings.Builder
 
 	sb.WriteString(titleStyle.Render(fmt.Sprintf(" %s v%s ", AppName, AppVersion)) + "\n\n")
