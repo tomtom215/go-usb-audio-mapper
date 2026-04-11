@@ -9,7 +9,7 @@ Thank you for your interest in contributing!
 
 ### Prerequisites
 
-- Go 1.22 or later
+- Go 1.25 or later
 - Linux system (this is a Linux-only tool)
 - System packages: `alsa-utils`, `usbutils`, `udev`
 

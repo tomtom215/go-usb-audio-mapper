@@ -64,7 +64,7 @@ func main() {
 
 	setupSignalHandling(ctx, cancel, resourceTracker, config)
 
-	executor := NewCommandExecutor(config, resourceTracker)
+	executor := NewCommandExecutor(&config, resourceTracker)
 
 	if err := CheckCommands(); err != nil {
 		slog.Error("Command check failed", "error", err)
@@ -94,7 +94,7 @@ func main() {
 	}
 
 	if !config.ListOnly && !config.DryRun {
-		success, err := testUdevSystem(ctx, executor, config, fileAccess)
+		success, err := testUdevSystem(ctx, executor, &config, fileAccess)
 		if err != nil {
 			slog.Error("Udev system test failed", "error", err)
 			fmt.Fprintf(os.Stderr, "Warning: Udev system test failed - %v\n", err)

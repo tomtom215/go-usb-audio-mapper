@@ -45,10 +45,11 @@ type USBSoundCard struct {
 
 // String returns a formatted representation of the sound card
 func (c USBSoundCard) String() string {
-	var attrs []string
-	attrs = append(attrs, fmt.Sprintf("Card: %s", c.CardNumber))
-	attrs = append(attrs, fmt.Sprintf("Device: %s %s", c.Vendor, c.Product))
-	attrs = append(attrs, fmt.Sprintf("VID:PID: %s:%s", c.VendorID, c.ProductID))
+	attrs := []string{
+		fmt.Sprintf("Card: %s", c.CardNumber),
+		fmt.Sprintf("Device: %s %s", c.Vendor, c.Product),
+		fmt.Sprintf("VID:PID: %s:%s", c.VendorID, c.ProductID),
+	}
 	if c.Serial != "" {
 		attrs = append(attrs, fmt.Sprintf("Serial: %s", c.Serial))
 	}

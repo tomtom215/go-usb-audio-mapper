@@ -16,14 +16,14 @@ import (
 )
 
 // backupExistingUdevRules creates a backup of existing rules files
-func backupExistingUdevRules(card USBSoundCard, config Config, fileAccess *SafeFileAccess) error {
+func backupExistingUdevRules(card *USBSoundCard, config *Config, fileAccess *SafeFileAccess) error {
 	if !config.BackupRules || config.DryRun {
 		return nil
 	}
 
 	backupDir := filepath.Join(config.UdevRulesPath, "backups")
 
-	if err := os.MkdirAll(backupDir, 0755); err != nil {
+	if err := os.MkdirAll(backupDir, 0o755); err != nil {
 		slog.Warn("Failed to create backup directory", "error", err)
 	}
 
@@ -102,7 +102,7 @@ func backupExistingUdevRules(card USBSoundCard, config Config, fileAccess *SafeF
 
 			transaction.AddOperation(
 				func() error {
-					return atomicWriteFile(backupFile, content, 0644, fileAccess, config.Timeouts.LockAcquisition)
+					return atomicWriteFile(backupFile, content, 0o644, fileAccess, config.Timeouts.LockAcquisition)
 				},
 				func() error {
 					if exists, _ := fileExists(backupFile); exists {
@@ -132,7 +132,7 @@ func backupExistingUdevRules(card USBSoundCard, config Config, fileAccess *SafeF
 }
 
 // testUdevSystem performs a basic test of the udev system
-func testUdevSystem(ctx context.Context, executor *CommandExecutor, config Config, fileAccess *SafeFileAccess) (bool, error) {
+func testUdevSystem(ctx context.Context, executor *CommandExecutor, config *Config, fileAccess *SafeFileAccess) (bool, error) {
 	slog.Info("Testing if udev rule system is working properly...")
 
 	if config.DryRun {
@@ -152,7 +152,7 @@ func testUdevSystem(ctx context.Context, executor *CommandExecutor, config Confi
 				return fmt.Errorf("failed to acquire lock on test rule file: %w", err)
 			}
 			defer func() { _ = fileAccess.UnlockFile(testRuleFile) }()
-			return os.WriteFile(testRuleFile, []byte(testRuleContent), 0644)
+			return os.WriteFile(testRuleFile, []byte(testRuleContent), 0o600)
 		},
 		func() error {
 			removeErr := os.Remove(testRuleFile)

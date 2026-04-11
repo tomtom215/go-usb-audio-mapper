@@ -23,7 +23,7 @@ type CommandExecutor struct {
 }
 
 // NewCommandExecutor creates a new command executor
-func NewCommandExecutor(config Config, resourceTracker *ResourceTracker) *CommandExecutor {
+func NewCommandExecutor(config *Config, resourceTracker *ResourceTracker) *CommandExecutor {
 	return &CommandExecutor{
 		DefaultTimeout:  config.Timeouts.CommandExecution,
 		MaxRetries:      config.MaxRetries,

@@ -20,7 +20,7 @@ func performInstallation(ctx context.Context, card USBSoundCard, customName stri
 		return "", fmt.Errorf("failed to create udev rule: %w", err)
 	}
 
-	if err := backupExistingUdevRules(card, config, fileAccess); err != nil {
+	if err := backupExistingUdevRules(&card, &config, fileAccess); err != nil {
 		slog.Warn("Failed to backup existing rules", "error", err)
 	}
 
@@ -117,7 +117,7 @@ func nonInteractiveMode(ctx context.Context, config Config, executor *CommandExe
 
 	transaction.AddOperation(
 		func() error {
-			return backupExistingUdevRules(selectedCard, config, fileAccess)
+			return backupExistingUdevRules(&selectedCard, &config, fileAccess)
 		},
 		func() error { return nil },
 	)

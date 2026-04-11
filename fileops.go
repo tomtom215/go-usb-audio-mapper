@@ -124,7 +124,7 @@ func (sfa *SafeFileAccess) CleanupAllLocks() {
 			}
 
 			lockID := fmt.Sprintf("filelock_%s", path)
-			sfa.tracker.ReleaseResource(lockID)
+			_ = sfa.tracker.ReleaseResource(lockID)
 		}
 	}
 
