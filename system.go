@@ -36,7 +36,7 @@ func checkAndFixPermissions(config *Config) error {
 	info, err := os.Stat(config.UdevRulesPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			err = os.MkdirAll(config.UdevRulesPath, 0o755)
+			err = os.MkdirAll(config.UdevRulesPath, 0o755) // #nosec G301 -- /etc/udev/rules.d is world-readable/traversable (0755) by system convention
 			if err != nil {
 				return fmt.Errorf("failed to create udev rules directory: %w", err)
 			}
@@ -51,7 +51,7 @@ func checkAndFixPermissions(config *Config) error {
 
 	if info.Mode().Perm()&0o755 != 0o755 {
 		slog.Info("Fixing permissions on rules directory", "path", config.UdevRulesPath)
-		err = os.Chmod(config.UdevRulesPath, 0o755)
+		err = os.Chmod(config.UdevRulesPath, 0o755) // #nosec G302 -- /etc/udev/rules.d must be world-readable/traversable (0755) by system convention
 		if err != nil {
 			return fmt.Errorf("failed to set permissions on udev rules directory: %w", err)
 		}
@@ -102,45 +102,39 @@ func checkPCIFallbackForSerials(ctx context.Context, executor *CommandExecutor) 
 // setupSignalHandling sets up graceful shutdown on system signals
 func setupSignalHandling(ctx context.Context, cancel context.CancelFunc, resourceTracker *ResourceTracker, config *Config) {
 	c := make(chan os.Signal, 1)
+	// os.Interrupt is syscall.SIGINT on Unix, so it is not listed twice.
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP,
-		syscall.SIGQUIT, syscall.SIGINT, syscall.SIGABRT)
+		syscall.SIGQUIT, syscall.SIGABRT)
 
 	go func() {
 		select {
+		case <-ctx.Done():
+			return
 		case sig := <-c:
 			slog.Info("Received signal, shutting down gracefully", "signal", sig)
 
 			cancel()
 
-			shutdownCtx, shutdownCancel := context.WithTimeout(
-				context.Background(),
-				config.Timeouts.GracefulShutdown,
-			)
-			defer shutdownCancel()
-
-			err := resourceTracker.WaitForCompletion(config.Timeouts.GracefulShutdown)
-			if err != nil {
-				slog.Error("Error waiting for operations to complete", "error", err)
-			}
-
-			errs := resourceTracker.CleanupAll()
-			if len(errs) > 0 {
-				for _, err := range errs {
+			// Perform cleanup in the background and enforce a hard deadline:
+			// if graceful shutdown overruns GracefulShutdown, force-exit rather
+			// than risk hanging on a stuck resource.
+			done := make(chan struct{})
+			go func() {
+				if err := resourceTracker.WaitForCompletion(config.Timeouts.GracefulShutdown); err != nil {
+					slog.Error("Error waiting for operations to complete", "error", err)
+				}
+				for _, err := range resourceTracker.CleanupAll() {
 					slog.Error("Error during resource cleanup", "error", err)
 				}
-			}
+				close(done)
+			}()
 
 			select {
-			case <-shutdownCtx.Done():
-				if errors.Is(shutdownCtx.Err(), context.DeadlineExceeded) {
-					slog.Error("Graceful shutdown timed out, forcing exit")
-					os.Exit(1)
-				}
-			default:
+			case <-done:
+			case <-time.After(config.Timeouts.GracefulShutdown):
+				slog.Error("Graceful shutdown timed out, forcing exit")
+				os.Exit(1)
 			}
-
-		case <-ctx.Done():
-			return
 		}
 	}()
 }

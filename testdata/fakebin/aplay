@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Fake `aplay` for hardware-free end-to-end tests.
+#
+# `aplay -l` lists playback hardware; `aplay -L` lists PCM names. Each mode
+# prints the contents of an override file in $FAKE_DEV_DIR when present, and a
+# built-in single-USB-card default otherwise.
+set -u
+
+dir="${FAKE_DEV_DIR:-}"
+
+emit() {
+	# emit <override-file> <<default-heredoc
+	local file="$1"
+	if [[ -n "$dir" && -f "$dir/$file" ]]; then
+		cat "$dir/$file"
+	else
+		cat
+	fi
+}
+
+case "${1:-}" in
+-l)
+	emit aplay_l.txt <<-'EOF'
+		**** List of PLAYBACK Hardware Devices ****
+		card 0: PCH [HDA Intel PCH], device 0: ALC892 Analog [ALC892 Analog]
+		card 1: Device [USB Audio Device], device 0: USB Audio [USB Audio]
+	EOF
+	;;
+-L)
+	emit aplay_L.txt <<-'EOF'
+		default
+		sysdefault:CARD=Device
+		usb_1234_5678_SN123456ABC
+	EOF
+	;;
+esac
+
+exit 0

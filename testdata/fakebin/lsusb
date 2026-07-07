@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Fake `lsusb` for hardware-free end-to-end tests.
+#
+#   lsusb            -> full device listing
+#   lsusb -d V:P     -> single device line
+#   lsusb -v         -> verbose output (includes iSerial)
+set -u
+
+dir="${FAKE_DEV_DIR:-}"
+
+emit() {
+	local file="$1"
+	if [[ -n "$dir" && -f "$dir/$file" ]]; then
+		cat "$dir/$file"
+	else
+		cat
+	fi
+}
+
+case "${1:-}" in
+-d)
+	emit lsusb_d.txt <<-'EOF'
+		Bus 001 Device 004: ID 1234:5678 Focusrite-Novation Scarlett 2i2
+	EOF
+	;;
+-v)
+	emit lsusb_v.txt <<-'EOF'
+		Bus 001 Device 004: ID 1234:5678 Focusrite-Novation Scarlett 2i2
+		  iSerial                 3 SN123456ABC
+	EOF
+	;;
+*)
+	emit lsusb.txt <<-'EOF'
+		Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+		Bus 001 Device 004: ID 1234:5678 Focusrite-Novation Scarlett 2i2
+	EOF
+	;;
+esac
+
+exit 0

@@ -50,15 +50,15 @@ func performInstallation(ctx context.Context, card *USBSoundCard, customName str
 	}
 
 	var messageBuilder strings.Builder
-	messageBuilder.WriteString(fmt.Sprintf("Created persistent mapping for %s %s (VID:PID %s:%s) as '%s'\n\n",
+	fmt.Fprintf(&messageBuilder, "Created persistent mapping for %s %s (VID:PID %s:%s) as '%s'\n\n",
 		card.Vendor, card.Product,
 		card.VendorID, card.ProductID,
-		customName))
+		customName)
 
-	messageBuilder.WriteString(fmt.Sprintf(
+	fmt.Fprintf(&messageBuilder,
 		"The sound card will use this name consistently across reboots and reconnections.\n"+
 			"You can see this device in 'aplay -l' output as card with ID '%s'\n"+
-			"once you disconnect and reconnect the device.\n", customName))
+			"once you disconnect and reconnect the device.\n", customName)
 
 	if warning != "" {
 		messageBuilder.WriteString("\nWarning: " + warning)

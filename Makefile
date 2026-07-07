@@ -4,9 +4,9 @@ VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 LDFLAGS := -s -w -X main.AppVersion=$(VERSION)
 GO := go
 
-.PHONY: all build test test-verbose test-cover lint vet fmt clean install help
+.PHONY: all build test test-verbose test-cover lint vet fmt golangci shellcheck e2e clean install help
 
-all: lint test build ## Run lint, test, and build
+all: lint shellcheck test e2e build ## Run lint, shellcheck, test, e2e, and build
 
 build: ## Build the binary
 	$(GO) build -ldflags "$(LDFLAGS)" -o $(BINARY_NAME) .
@@ -26,13 +26,30 @@ test-cover: ## Run tests with coverage report
 	@echo ""
 	@echo "To view HTML coverage report: go tool cover -html=coverage.out"
 
-lint: vet fmt ## Run all linters
+lint: vet fmt golangci ## Run all linters
 
 vet: ## Run go vet
 	$(GO) vet ./...
 
 fmt: ## Check formatting
 	@test -z "$$(gofmt -l .)" || (echo "Files need formatting:"; gofmt -l .; exit 1)
+
+golangci: ## Run golangci-lint if installed
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run ./...; \
+	else \
+		echo "golangci-lint not installed; skipping (see .golangci.yml)"; \
+	fi
+
+shellcheck: ## Lint shell scripts and fake-command fixtures (skipped if unavailable)
+	@if command -v shellcheck >/dev/null 2>&1; then \
+		shellcheck scripts/*.sh testdata/fakebin/*; \
+	else \
+		echo "shellcheck not installed; skipping"; \
+	fi
+
+e2e: ## Run the end-to-end binary smoke test (fake devices, no hardware)
+	bash scripts/e2e.sh
 
 clean: ## Remove build artifacts
 	rm -f $(BINARY_NAME) coverage.out coverage.html

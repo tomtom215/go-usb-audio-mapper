@@ -15,12 +15,19 @@ const (
 	AppName    = "usb-soundcard-mapper"
 	AppVersion = "2.1.0"
 
-	ExecTimeout     = 5 * time.Second
-	udevRulesDir    = "/etc/udev/rules.d"
-	maxBackupCount  = 10              // Maximum number of backups to keep per device
-	maxQueueSize    = 100             // Maximum size of operation queues
-	maxFileSize     = 1024 * 1024     // 1MB maximum file size for safety
-	gracefulTimeout = 5 * time.Second // Timeout for graceful shutdown
+	udevRulesDir   = "/etc/udev/rules.d"
+	maxBackupCount = 10          // Maximum number of backups to keep per device
+	maxQueueSize   = 100         // Maximum size of operation queues
+	maxFileSize    = 1024 * 1024 // 1MB maximum file size for safety
+)
+
+// System integration paths. These are variables rather than constants so that
+// tests can redirect them to temporary directories and exercise the detection
+// and verification pipeline without real hardware. At runtime they always hold
+// their default values.
+var (
+	sysClassSoundPath = "/sys/class/sound"
+	modprobeDir       = "/etc/modprobe.d"
 )
 
 // Pre-compiled regular expressions for improved performance and safety

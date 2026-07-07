@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Fake `udevadm` for hardware-free end-to-end tests.
+#
+# Supports the subcommands this tool invokes:
+#   info --attribute-walk --path <p>  -> device attribute walk
+#   info --path <p>                   -> resolved device properties
+#   control --reload-rules            -> success (or $FAKE_DEV_DIR/udevadm_control_rc)
+#   trigger ...                       -> success (or $FAKE_DEV_DIR/udevadm_trigger_rc)
+set -u
+
+dir="${FAKE_DEV_DIR:-}"
+args="$*"
+
+rc_from() {
+	# rc_from <file>: echo the integer return code stored in an override file, else 0
+	local file="$1"
+	if [[ -n "$dir" && -f "$dir/$file" ]]; then
+		cat "$dir/$file"
+	else
+		echo 0
+	fi
+}
+
+case "${1:-}" in
+info)
+	if [[ "$args" == *--attribute-walk* ]]; then
+		if [[ -n "$dir" && -f "$dir/udevadm_attr_walk.txt" ]]; then
+			cat "$dir/udevadm_attr_walk.txt"
+		else
+			cat <<-'EOF'
+				  looking at device '/devices/pci0000:00/0000:00:14.0/usb1/1-2/1-2.3/sound/card1':
+				    KERNEL=="card1"
+				    SUBSYSTEM=="sound"
+				    DRIVERS==""
+				  looking at parent device '/devices/pci0000:00/0000:00:14.0/usb1/1-2/1-2.3':
+				    KERNELS=="1-2.3"
+				    DRIVERS=="snd_usb_audio"
+				    ATTRS{idVendor}=="1234"
+				    ATTRS{idProduct}=="5678"
+				    ATTRS{serial}=="SN123456ABC"
+			EOF
+		fi
+	else
+		if [[ -n "$dir" && -f "$dir/udevadm_info.txt" ]]; then
+			cat "$dir/udevadm_info.txt"
+		fi
+	fi
+	;;
+control)
+	exit "$(rc_from udevadm_control_rc)"
+	;;
+trigger)
+	exit "$(rc_from udevadm_trigger_rc)"
+	;;
+esac
+
+exit 0

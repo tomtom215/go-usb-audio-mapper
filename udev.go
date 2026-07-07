@@ -156,7 +156,7 @@ func installUdevRule(_ context.Context, rule *UdevRule, config *Config, fileAcce
 	// Directory creation
 	transaction.AddOperation(
 		func() error {
-			return os.MkdirAll(config.UdevRulesPath, 0o755)
+			return os.MkdirAll(config.UdevRulesPath, 0o755) // #nosec G301 -- /etc/udev/rules.d is world-readable/traversable (0755) by system convention
 		},
 		func() error { return nil },
 	)
@@ -207,7 +207,7 @@ func installUdevRule(_ context.Context, rule *UdevRule, config *Config, fileAcce
 			},
 			func() error {
 				if backupPath != "" && exists {
-					content, err := os.ReadFile(backupPath)
+					content, err := os.ReadFile(backupPath) // #nosec G304 -- backupPath is derived from the validated rules path
 					if err != nil {
 						return fmt.Errorf("failed to read backup for rollback: %w", err)
 					}
@@ -239,7 +239,7 @@ func installUdevRule(_ context.Context, rule *UdevRule, config *Config, fileAcce
 
 // createModprobeConfig creates a modprobe configuration for better device handling
 func createModprobeConfig(card *USBSoundCard, config *Config, fileAccess *SafeFileAccess) error {
-	modprobePath := "/etc/modprobe.d"
+	modprobePath := modprobeDir
 	exists, err := directoryExists(modprobePath)
 	if err != nil {
 		return fmt.Errorf("error checking modprobe directory: %w", err)
@@ -267,8 +267,8 @@ func createModprobeConfig(card *USBSoundCard, config *Config, fileAccess *SafeFi
 	}
 
 	var contentBuilder strings.Builder
-	contentBuilder.WriteString(fmt.Sprintf("# Modprobe options for USB sound card %s %s\n",
-		card.Vendor, card.Product))
+	fmt.Fprintf(&contentBuilder, "# Modprobe options for USB sound card %s %s\n",
+		card.Vendor, card.Product)
 	contentBuilder.WriteString("options snd_usb_audio index=-2\n")
 
 	if err := atomicWriteFile(modprobeFile, []byte(contentBuilder.String()), 0o644, fileAccess, config.Timeouts.LockAcquisition); err != nil {
@@ -349,7 +349,7 @@ func verifyUdevRuleInstallation(ctx context.Context, executor *CommandExecutor, 
 		return true, nil
 	}
 
-	cardPath := fmt.Sprintf("/sys/class/sound/card%s", card.CardNumber)
+	cardPath := fmt.Sprintf("%s/card%s", sysClassSoundPath, card.CardNumber)
 	exists, err := pathExists(cardPath)
 	if err != nil {
 		return false, fmt.Errorf("error checking card path: %w", err)
