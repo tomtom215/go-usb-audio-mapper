@@ -93,17 +93,17 @@ cat >"$FAKE_DEV_DIR/aplay_l.txt" <<-'EOF'
 EOF
 run_case "aplay/sysfs mismatch" 1 'device disconnected|failed to process' -- --list --retries 0
 
-# Missing required commands are detected when the fakes are not on PATH.
-if ! command -v lsusb >/dev/null 2>&1 || [[ "$(command -v lsusb)" == "$fakebin/lsusb" ]]; then
-	out="$(PATH="/usr/bin:/bin" "$bin" --list 2>&1)" && rc=0 || rc=$?
-	if [[ "$rc" -eq 1 ]] && grep -qE 'required commands not found' <<<"$out"; then
-		ok "missing commands detected"
-	else
-		bad "missing commands detected (exit $rc)"
-		log "$out"
-	fi
+# With lsusb/aplay/udevadm absent from PATH, the tool reports the missing
+# commands and exits non-zero. An empty directory as PATH makes this
+# deterministic regardless of what the host has installed in /usr/bin.
+emptybin="$work/emptybin"
+mkdir -p "$emptybin"
+out="$(PATH="$emptybin" "$bin" --list 2>&1)" && rc=0 || rc=$?
+if [[ "$rc" -eq 1 ]] && grep -qE 'required commands not found' <<<"$out"; then
+	ok "missing commands detected"
 else
-	log "SKIP missing-commands case (real lsusb present on base PATH)"
+	bad "missing commands detected (exit $rc)"
+	log "$out"
 fi
 
 echo
