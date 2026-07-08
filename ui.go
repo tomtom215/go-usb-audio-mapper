@@ -69,11 +69,6 @@ var (
 			Background(lipgloss.Color("#7D56F4")).
 			Padding(0, 1)
 
-	subtitleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FAFAFA")).
-			Background(lipgloss.Color("#43BF6D")).
-			Padding(0, 1)
-
 	activeStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("#43BF6D"))
@@ -99,9 +94,6 @@ var (
 	infoStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#43BF6D"))
 )
-
-// Suppress unused variable warnings for styles used only in views
-var _ = subtitleStyle
 
 // UI-related key mappings
 type keyMap struct {
@@ -387,7 +379,7 @@ func (m uiModel) View() string { //nolint:gocritic // tea.Model interface requir
 
 	case stateNameInput:
 		sb.WriteString(inactiveStyle.Render("Step 1: Select a USB sound card") + "\n")
-		sb.WriteString(fmt.Sprintf("Selected: %s\n\n", highlightStyle.Render(m.selectedCard.Vendor+" "+m.selectedCard.Product)))
+		fmt.Fprintf(&sb, "Selected: %s\n\n", highlightStyle.Render(m.selectedCard.Vendor+" "+m.selectedCard.Product))
 
 		if m.warning != "" {
 			sb.WriteString(warningStyle.Render("Warning: "+m.warning) + "\n\n")
@@ -404,23 +396,23 @@ func (m uiModel) View() string { //nolint:gocritic // tea.Model interface requir
 
 	case stateConfirmation:
 		sb.WriteString("Please confirm the following configuration:\n\n")
-		sb.WriteString(fmt.Sprintf("Device: %s\n", highlightStyle.Render(m.selectedCard.Vendor+" "+m.selectedCard.Product)))
-		sb.WriteString(fmt.Sprintf("Card Number: %s\n", m.selectedCard.CardNumber))
-		sb.WriteString(fmt.Sprintf("VID:PID: %s:%s\n", m.selectedCard.VendorID, m.selectedCard.ProductID))
+		fmt.Fprintf(&sb, "Device: %s\n", highlightStyle.Render(m.selectedCard.Vendor+" "+m.selectedCard.Product))
+		fmt.Fprintf(&sb, "Card Number: %s\n", m.selectedCard.CardNumber)
+		fmt.Fprintf(&sb, "VID:PID: %s:%s\n", m.selectedCard.VendorID, m.selectedCard.ProductID)
 
 		if m.selectedCard.Serial != "" {
-			sb.WriteString(fmt.Sprintf("Serial: %s\n", m.selectedCard.Serial))
+			fmt.Fprintf(&sb, "Serial: %s\n", m.selectedCard.Serial)
 		}
 
 		if m.selectedCard.PhysicalPort != "" {
-			sb.WriteString(fmt.Sprintf("Physical Port: %s\n", m.selectedCard.PhysicalPort))
+			fmt.Fprintf(&sb, "Physical Port: %s\n", m.selectedCard.PhysicalPort)
 		}
 
 		if m.selectedCard.IsVirtual {
 			sb.WriteString("Type: Virtual Device\n")
 		}
 
-		sb.WriteString(fmt.Sprintf("\nCustom Name: %s\n\n", highlightStyle.Render(m.customName)))
+		fmt.Fprintf(&sb, "\nCustom Name: %s\n\n", highlightStyle.Render(m.customName))
 
 		if m.warning != "" {
 			sb.WriteString(warningStyle.Render("Warning: "+m.warning) + "\n\n")
@@ -439,7 +431,7 @@ func (m uiModel) View() string { //nolint:gocritic // tea.Model interface requir
 
 		rulePath := filepath.Join(m.config.UdevRulesPath,
 			fmt.Sprintf("89-usb-soundcard-%s-%s.rules", m.selectedCard.VendorID, m.selectedCard.ProductID))
-		sb.WriteString(fmt.Sprintf("Rule file created at: %s\n\n", rulePath))
+		fmt.Fprintf(&sb, "Rule file created at: %s\n\n", rulePath)
 
 		sb.WriteString("Important: For the changes to take full effect, please:\n")
 		sb.WriteString("1. Disconnect and reconnect the USB sound device, or\n")

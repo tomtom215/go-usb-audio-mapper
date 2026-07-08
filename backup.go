@@ -23,7 +23,9 @@ func backupExistingUdevRules(card *USBSoundCard, config *Config, fileAccess *Saf
 
 	backupDir := filepath.Join(config.UdevRulesPath, "backups")
 
-	if err := os.MkdirAll(backupDir, 0o755); err != nil {
+	// Backups are only consumed by root; 0o750 is sufficient and stricter
+	// than the world-readable rules directory itself.
+	if err := os.MkdirAll(backupDir, 0o750); err != nil {
 		slog.Warn("Failed to create backup directory", "error", err)
 	}
 
@@ -89,7 +91,7 @@ func backupExistingUdevRules(card *USBSoundCard, config *Config, fileAccess *Saf
 					}
 					defer func() { _ = fileAccess.UnlockFile(match) }()
 
-					c, err := os.ReadFile(match)
+					c, err := os.ReadFile(match) // #nosec G304 -- match comes from filepath.Glob within the validated rules directory
 					if err != nil {
 						return fmt.Errorf("failed to read file: %w", err)
 					}

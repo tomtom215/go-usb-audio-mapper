@@ -15,6 +15,18 @@ import (
 	"time"
 )
 
+// Regular expressions used to parse udevadm and lsusb output. Compiled once at
+// package load rather than on every device-detection call.
+var (
+	attrVendorRegex  = regexp.MustCompile(`ATTRS{idVendor}=="([^"]*)"`)
+	attrProductRegex = regexp.MustCompile(`ATTRS{idProduct}=="([^"]*)"`)
+	attrSerialRegex  = regexp.MustCompile(`ATTRS{serial}=="([^"]*)"`)
+	kernelsPathRegex = regexp.MustCompile(`KERNELS=="([0-9\-.]+)"`)
+	driversRegex     = regexp.MustCompile(`DRIVERS=="([^"]*)"`)
+	lsusbNameRegex   = regexp.MustCompile(`ID [0-9a-f]+:[0-9a-f]+ (.+)`)
+	lsusbLineRegex   = regexp.MustCompile(`Bus (\d{3}) Device (\d{3}): ID ([0-9a-f]{4}):([0-9a-f]{4}) (.+)`)
+)
+
 // DeviceStatus represents current device status
 type DeviceStatus int
 
@@ -164,8 +176,6 @@ func (dr *DeviceRegistry) generateDeviceKey(card *USBSoundCard) string {
 
 // GetUSBSoundCards detects all USB sound cards in the system
 func GetUSBSoundCards(ctx context.Context, executor *CommandExecutor, config *Config) ([]USBSoundCard, error) {
-	registry := NewDeviceRegistry()
-
 	output, err := executor.ExecuteCommand(ctx, "aplay", "-l")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sound cards: %w", err)
@@ -216,7 +226,6 @@ func GetUSBSoundCards(ctx context.Context, executor *CommandExecutor, config *Co
 		}
 
 		cards = append(cards, card)
-		registry.AddDevice(&card)
 	}
 
 	if len(cards) == 0 && len(errs) == 0 {
@@ -247,7 +256,7 @@ func getCardDetails(ctx context.Context, executor *CommandExecutor, cardNumber s
 		Status:     DeviceStatusConnected,
 	}
 
-	sysfsPath := fmt.Sprintf("/sys/class/sound/card%s", cardNumber)
+	sysfsPath := fmt.Sprintf("%s/card%s", sysClassSoundPath, cardNumber)
 
 	if ok, err := pathExists(sysfsPath); !ok {
 		if err != nil {
@@ -262,30 +271,25 @@ func getCardDetails(ctx context.Context, executor *CommandExecutor, cardNumber s
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(output))
-	vendorRegexp := regexp.MustCompile(`ATTRS{idVendor}=="([^"]*)"`)
-	productRegexp := regexp.MustCompile(`ATTRS{idProduct}=="([^"]*)"`)
-	serialRegexpLocal := regexp.MustCompile(`ATTRS{serial}=="([^"]*)"`)
-	busPathRegexp := regexp.MustCompile(`KERNELS=="([0-9\-.]+)"`)
-	driverRegexp := regexp.MustCompile(`DRIVERS=="([^"]*)"`)
 
 	isVirtualDevice := false
 
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		if matches := vendorRegexp.FindStringSubmatch(line); matches != nil && card.VendorID == "" {
+		if matches := attrVendorRegex.FindStringSubmatch(line); matches != nil && card.VendorID == "" {
 			card.VendorID = matches[1]
 		}
 
-		if matches := productRegexp.FindStringSubmatch(line); matches != nil && card.ProductID == "" {
+		if matches := attrProductRegex.FindStringSubmatch(line); matches != nil && card.ProductID == "" {
 			card.ProductID = matches[1]
 		}
 
-		if matches := serialRegexpLocal.FindStringSubmatch(line); matches != nil && card.Serial == "" {
+		if matches := attrSerialRegex.FindStringSubmatch(line); matches != nil && card.Serial == "" {
 			card.Serial = sanitizeSerial(matches[1])
 		}
 
-		if matches := busPathRegexp.FindStringSubmatch(line); matches != nil && card.PhysicalPort == "" {
+		if matches := kernelsPathRegex.FindStringSubmatch(line); matches != nil && card.PhysicalPort == "" {
 			card.PhysicalPort = matches[1]
 
 			parts := strings.Split(matches[1], "-")
@@ -297,7 +301,7 @@ func getCardDetails(ctx context.Context, executor *CommandExecutor, cardNumber s
 			}
 		}
 
-		if matches := driverRegexp.FindStringSubmatch(line); matches != nil {
+		if matches := driversRegex.FindStringSubmatch(line); matches != nil {
 			driverName := matches[1]
 			if isVirtualDriver(driverName) {
 				isVirtualDevice = true
@@ -319,11 +323,11 @@ func getCardDetails(ctx context.Context, executor *CommandExecutor, cardNumber s
 		return card, fmt.Errorf("insufficient device information for card %s", card.CardNumber)
 	}
 
-	if card.VendorID != "" && card.ProductID != "" && ctx.Err() == nil {
+	// VendorID/ProductID are guaranteed non-empty by the check above.
+	if ctx.Err() == nil {
 		lsusbOutput, err := executor.ExecuteCommand(ctx, "lsusb", "-d", fmt.Sprintf("%s:%s", card.VendorID, card.ProductID))
 		if err == nil && lsusbOutput != "" {
-			lsusbRegexp := regexp.MustCompile(`ID [0-9a-f]+:[0-9a-f]+ (.+)`)
-			if matches := lsusbRegexp.FindStringSubmatch(lsusbOutput); matches != nil {
+			if matches := lsusbNameRegex.FindStringSubmatch(lsusbOutput); matches != nil {
 				fullName := matches[1]
 
 				parts := strings.SplitN(fullName, " ", 2)
@@ -444,11 +448,10 @@ func findAllUSBDevices(ctx context.Context, executor *CommandExecutor) (map[stri
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(output))
-	lsusbRegexp := regexp.MustCompile(`Bus (\d{3}) Device (\d{3}): ID ([0-9a-f]{4}):([0-9a-f]{4}) (.+)`)
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		matches := lsusbRegexp.FindStringSubmatch(line)
+		matches := lsusbLineRegex.FindStringSubmatch(line)
 
 		if len(matches) >= 6 {
 			busNum := matches[1]

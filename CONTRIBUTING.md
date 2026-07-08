@@ -9,9 +9,10 @@ Thank you for your interest in contributing!
 
 ### Prerequisites
 
-- Go 1.24 or later
+- Go 1.26 or later
 - Linux system (this is a Linux-only tool)
 - System packages: `alsa-utils`, `usbutils`, `udev`
+- Optional (for the full `make all`): `shellcheck`
 
 ### Building
 
@@ -20,9 +21,11 @@ git clone https://github.com/tomtom215/go-usb-audio-mapper.git
 cd go-usb-audio-mapper
 
 make build       # Build the binary
-make test        # Run tests
+make test        # Run tests (race detector)
 make test-cover  # Run tests with coverage
-make all         # Lint + test + build
+make e2e         # Hardware-free end-to-end smoke test of the binary
+make shellcheck  # Lint shell scripts and fake-command fixtures
+make all         # Lint + shellcheck + test + e2e + build
 make help        # Show all targets
 ```
 
@@ -75,6 +78,8 @@ backup.go         Rule backup and udev system testing
 system.go         Privileges, permissions, signal handling, logging
 ui.go             Bubble Tea interactive terminal UI
 operations.go     Installation pipeline, non-interactive mode
+testdata/fakebin/ Fake lsusb/aplay/udevadm commands for hardware-free tests
+scripts/e2e.sh    End-to-end smoke test of the compiled binary
 ```
 
 ## Testing
@@ -86,8 +91,19 @@ Every source file should have a corresponding `_test.go` file.
 | Type | Location | Command |
 |------|----------|---------|
 | Unit tests | `*_test.go` | `go test ./...` |
+| Hardware-free E2E | `*_e2e_test.go` | `go test ./...` |
 | Race detection | `*_test.go` | `go test -race ./...` |
 | Coverage | `*_test.go` | `make test-cover` |
+| Binary smoke test | `scripts/e2e.sh` | `make e2e` |
+
+### Hardware-free testing
+
+Detection and installation shell out to `lsusb`, `aplay`, and `udevadm`. Tests
+never touch real hardware or `/etc`: the fake commands in `testdata/fakebin/`
+are placed on `PATH`, and the `sysClassSoundPath` / `modprobeDir` package
+variables (plus `--rules-path`) are redirected to temp directories. Scenarios
+are steered by dropping override files into a `FAKE_DEV_DIR` (see
+`helpers_test.go`). Keep the fakes `shellcheck`-clean.
 
 ### Running Tests
 
@@ -103,7 +119,9 @@ make test-cover                         # Coverage report
 - Important unexported functions
 - Error paths, not just happy paths
 - Use table-driven tests where appropriate
-- Functions requiring root/hardware/terminal are exempt from unit tests
+- Functions that shell out to system commands or read hardware paths are tested
+  via the fake commands in `testdata/fakebin/` (see "Hardware-free testing");
+  only the interactive terminal program (`runUI`) is exempt
 
 ## Quality Gates
 
@@ -111,11 +129,14 @@ All of the following must pass before merging:
 
 1. `gofmt -l .` produces no output
 2. `go vet ./...` passes
-3. `go test -race ./...` passes
-4. `go build ./...` succeeds
-5. No file exceeds 500 lines
-6. SPDX headers on all new files
-7. CHANGELOG.md updated for user-facing changes
+3. `golangci-lint run ./...` passes (v2 config in `.golangci.yml`)
+4. `go test -race ./...` passes
+5. `go build ./...` succeeds
+6. `make e2e` passes and `make shellcheck` is clean
+7. `govulncheck ./...` reports no vulnerabilities
+8. No file exceeds 500 lines
+9. SPDX headers on all new files
+10. CHANGELOG.md updated for user-facing changes
 
 ## PR Checklist
 

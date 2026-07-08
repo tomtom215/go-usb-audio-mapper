@@ -135,7 +135,7 @@ func (ce *CommandExecutor) executeCommandOnce(
 	}
 
 	slog.Debug("Executing command", "command", command, "args", args)
-	cmd := exec.CommandContext(execCtx, cmdPath, args...)
+	cmd := exec.CommandContext(execCtx, cmdPath, args...) // #nosec G204 -- command name and args are validated by validateCommandArgs before every call reaches here
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

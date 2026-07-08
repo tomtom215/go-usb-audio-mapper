@@ -1,39 +1,57 @@
 # SPDX-License-Identifier: MIT
 # Copyright 2025 Tom F. (https://github.com/tomtom215)
 
-run:
-  timeout: 5m
+# golangci-lint v2 configuration.
+# The v2 default linter set (errcheck, govet, ineffassign, staticcheck, unused)
+# is always enabled; the linters listed below are enabled in addition to it.
+version: "2"
 
 linters:
   enable:
-    - errcheck
-    - gosimple
-    - govet
-    - ineffassign
-    - staticcheck
-    - unused
     - gocritic
     - gosec
+    - misspell
     - prealloc
     - unconvert
     - unparam
-    - misspell
+  settings:
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+    gosec:
+      # G204: subprocess launched with variable. Every exec path in this tool
+      # routes through validateCommandArgs (see command.go); the remaining
+      # gosec findings are annotated in-line with justified #nosec comments.
+      excludes:
+        - G204
+    misspell:
+      locale: US
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      # Tests exercise permissive paths and unchecked helpers on purpose.
+      - path: _test\.go
+        linters:
+          - gosec
+          - unparam
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 
-linters-settings:
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
-      - performance
-  gosec:
-    excludes:
-      - G204  # We validate command args before exec
-  misspell:
-    locale: US
-
-issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - gosec
-        - unparam
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

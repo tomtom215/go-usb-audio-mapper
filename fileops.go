@@ -168,17 +168,17 @@ func atomicWriteFile(filename string, data []byte, perm fs.FileMode, fileAccess 
 	}()
 
 	if _, err = tempFile.Write(data); err != nil {
-		tempFile.Close()
+		_ = tempFile.Close()
 		return fmt.Errorf("failed to write to temporary file: %w", err)
 	}
 
 	if err = tempFile.Chmod(perm); err != nil {
-		tempFile.Close()
+		_ = tempFile.Close()
 		return fmt.Errorf("failed to chmod temporary file: %w", err)
 	}
 
 	if err = tempFile.Sync(); err != nil {
-		tempFile.Close()
+		_ = tempFile.Close()
 		return fmt.Errorf("failed to sync temporary file: %w", err)
 	}
 

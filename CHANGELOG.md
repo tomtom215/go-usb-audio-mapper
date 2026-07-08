@@ -10,6 +10,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Hardware-free end-to-end test harness.** Fake `lsusb`/`aplay`/`udevadm` and
+  sound-server commands under `testdata/fakebin/`, a Go integration layer that
+  drives the full detection → install → verify pipeline against them, and
+  `scripts/e2e.sh` which exercises the compiled binary's CLI surface. No USB
+  audio hardware is required. Test functions grew from ~80 to 149 and statement
+  coverage from 28.9% to 77.6%.
+- Injectable `sysClassSoundPath` and `modprobeDir` seams so detection and
+  verification can run against temporary directories in tests (runtime defaults
+  are unchanged).
+- `make e2e`, `make shellcheck`, and `make golangci` targets; `make all` now runs
+  lint + shellcheck + test + e2e + build.
+- CI now runs `shellcheck` over the scripts/fixtures and executes the end-to-end
+  binary smoke test.
+
+### Changed
+
+- **Toolchain upgraded to Go 1.26** (`go.mod` `go 1.26.0` / `toolchain go1.26.5`);
+  CI, README, and CONTRIBUTING updated accordingly. Minimum supported Go is now
+  1.26.
+- Migrated `.golangci.yml` to the golangci-lint **v2** schema (the previous v1
+  configuration no longer loads under golangci-lint ≥ 2.0) and upgraded the CI
+  `golangci-lint-action` to `v8`.
+- Updated indirect dependencies to their latest releases, including
+  `golang.org/x/text` 0.3.8 → 0.39.0 and `golang.org/x/sys` 0.38.0 → 0.46.0.
+- Signal handling now enforces the graceful-shutdown deadline with an explicit
+  timer instead of an unused derived context (also clears gosec G118).
+- Hoisted the remaining per-call `regexp.MustCompile` calls in `device.go` to
+  package scope.
+
+### Fixed
+
+- Unhandled `*os.File.Close()` errors in the `atomicWriteFile` error paths
+  (gosec G104).
+- Replaced `WriteString(fmt.Sprintf(...))` with `fmt.Fprintf` throughout
+  (staticcheck QF1012).
+- Removed dead code: the unused `DeviceRegistry` instantiation in
+  `GetUSBSoundCards`, the unused `subtitleStyle`, the unused `ExecTimeout` and
+  `gracefulTimeout` constants, and a redundant vendor/product guard.
+- Tightened the backups directory permissions to `0o750`.
+
+### Security
+
+- Resolved govulncheck **GO-2026-4602** (`os` standard library, fixed in
+  go1.25.8) by building on the Go 1.26 toolchain; `govulncheck ./...` now reports
+  no vulnerabilities.
+- Documented the intentional subprocess-execution, directory-permission, and
+  file-read patterns with justified `// #nosec` annotations so that a
+  zero-exclusion `gosec` run is also clean.
+
 ## [2.1.0] — 2026-04-11
 
 ### Breaking Changes

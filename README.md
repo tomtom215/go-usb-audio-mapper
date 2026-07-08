@@ -8,7 +8,7 @@
 [![codecov](https://codecov.io/gh/tomtom215/go-usb-audio-mapper/graph/badge.svg)](https://codecov.io/gh/tomtom215/go-usb-audio-mapper)
 [![Go Report Card](https://goreportcard.com/badge/github.com/tomtom215/go-usb-audio-mapper)](https://goreportcard.com/report/github.com/tomtom215/go-usb-audio-mapper)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go](https://img.shields.io/badge/go-1.24%2B-blue.svg)](https://go.dev/)
+[![Go](https://img.shields.io/badge/go-1.26%2B-blue.svg)](https://go.dev/)
 
 A production-grade utility for creating persistent udev mappings for USB audio devices on Linux systems.
 
@@ -38,7 +38,7 @@ This utility creates persistent udev rules that assign consistent, meaningful na
 - Linux system with udev (most modern distributions)
 - Required commands: `lsusb`, `aplay`, `udevadm`
 - Root privileges (for writing udev rules)
-- Go 1.24+ (for building from source)
+- Go 1.26+ (for building from source)
 
 ## Installation
 
@@ -77,15 +77,25 @@ sudo make install
 ### Development
 
 ```bash
-# Run all checks (lint + test + build)
+# Run all checks (lint + shellcheck + test + e2e + build)
 make all
 
 # Run tests with coverage
 make test-cover
 
+# Run the hardware-free end-to-end smoke test against the built binary
+make e2e
+
+# Lint the shell scripts and fake-command fixtures
+make shellcheck
+
 # See all available targets
 make help
 ```
+
+All tests and the end-to-end harness run without any USB audio hardware: the
+system commands (`lsusb`, `aplay`, `udevadm`) are faked by the scripts in
+`testdata/fakebin/`.
 
 ## Usage
 
@@ -221,9 +231,10 @@ Options:
 | Command execution safety (injection prevention) | Done |
 | Signal handling and graceful shutdown | Done |
 | Modular architecture (13 files, all <500 lines) | Done |
-| Comprehensive test suite (80+ tests) | Done |
-| CI/CD pipeline (lint, test, build, release) | Done |
-| Security scanning (govulncheck) | Done |
+| Comprehensive test suite (149 tests, race detector) | Done |
+| Hardware-free end-to-end testing (fake lsusb/aplay/udevadm) | Done |
+| CI/CD pipeline (lint, shellcheck, test, e2e, build, release) | Done |
+| Security scanning (govulncheck, gosec) | Done |
 | Production documentation (SECURITY, CHANGELOG, ADRs) | Done |
 
 ## Project Structure
@@ -243,9 +254,11 @@ Options:
 ├── system.go            # Privileges, permissions, signal handling, logging
 ├── ui.go                # Bubble Tea interactive terminal UI
 ├── operations.go        # Installation pipeline, non-interactive mode
-├── *_test.go            # Tests (one per source file)
+├── *_test.go            # Tests, incl. hardware-free E2E (*_e2e_test.go)
+├── testdata/fakebin/    # Fake lsusb/aplay/udevadm for hardware-free testing
+├── scripts/e2e.sh       # End-to-end smoke test of the compiled binary
 ├── docs/adr/            # Architecture Decision Records
-├── Makefile             # Build, test, lint targets
+├── Makefile             # Build, test, lint, shellcheck, e2e targets
 ├── .golangci.yml        # Linter configuration
 ├── .goreleaser.yml      # Release automation config
 ├── codecov.yml          # Coverage targets
