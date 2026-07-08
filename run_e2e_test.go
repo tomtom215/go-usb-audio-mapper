@@ -91,6 +91,14 @@ func TestRun_InvalidVendorID(t *testing.T) {
 }
 
 func TestRun_FullNonInteractiveInstall(t *testing.T) {
+	// The non-interactive install path (not --list, not --dry-run) requires
+	// root privileges in run(); skip when the test process is not elevated
+	// (e.g. on CI runners). The installation logic itself is covered without
+	// root by TestNonInteractiveMode_Success.
+	if os.Geteuid() != 0 {
+		t.Skip("requires root privileges")
+	}
+
 	installFakeBin(t)
 	fakeSysfs(t, "1")
 	fakeModprobeDir(t, true)
