@@ -40,7 +40,21 @@ var (
 	pathSafeRegex    = regexp.MustCompile(`^[a-zA-Z0-9_\-./]+$`)
 	nonAlphaNumRegex = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 	cardRegex        = regexp.MustCompile(`card (\d+):.*\[(.+)\].*\[(.+)\]`)
+
+	// udevUnsafeValueRegex matches any character that cannot appear inside a
+	// double-quoted udev rule match value without corrupting the rule: a double
+	// quote closes the string, a backslash may be treated as an escape, and any
+	// control character (including CR/LF) breaks udev's single-line grammar.
+	// Values that match are considered unrepresentable and the caller falls back
+	// to a different, always-safe match key (e.g. the physical USB port).
+	udevUnsafeValueRegex = regexp.MustCompile(`["\\\x00-\x1f\x7f]`)
 )
+
+// isUdevSafeValue reports whether s can be embedded verbatim inside a
+// double-quoted udev rule match without producing a malformed rule.
+func isUdevSafeValue(s string) bool {
+	return !udevUnsafeValueRegex.MatchString(s)
+}
 
 // LogLevel represents the logging verbosity level
 type LogLevel string
@@ -159,6 +173,46 @@ func validateConfig(config *Config) error {
 	// Ensure GracefulShutdown timeout is set
 	if config.Timeouts.GracefulShutdown <= 0 {
 		config.Timeouts.GracefulShutdown = DefaultTimeouts.GracefulShutdown
+	}
+
+	// A non-positive command-execution timeout makes every exec context expire
+	// immediately, which silently breaks all detection and installation. Rather
+	// than fail an unattended field deployment over a mistyped flag, fall back to
+	// the safe default and warn. The remaining wait/retry timeouts are clamped
+	// too so a bad value cannot turn a bounded wait into a busy loop or a
+	// zero-length sleep.
+	if config.Timeouts.CommandExecution <= 0 {
+		slog.Warn("Non-positive command-execution timeout; using default",
+			"provided", config.Timeouts.CommandExecution,
+			"default", DefaultTimeouts.CommandExecution)
+		config.Timeouts.CommandExecution = DefaultTimeouts.CommandExecution
+	}
+	if config.Timeouts.RetryInterval <= 0 {
+		config.Timeouts.RetryInterval = DefaultTimeouts.RetryInterval
+	}
+	if config.Timeouts.RuleReloadWait <= 0 {
+		config.Timeouts.RuleReloadWait = DefaultTimeouts.RuleReloadWait
+	}
+	if config.Timeouts.TriggerActionWait <= 0 {
+		config.Timeouts.TriggerActionWait = DefaultTimeouts.TriggerActionWait
+	}
+
+	// A negative retry count would skip command execution entirely; clamp it to
+	// zero (meaning "one attempt, no retries").
+	if config.MaxRetries < 0 {
+		slog.Warn("Negative retry count; clamping to zero", "provided", config.MaxRetries)
+		config.MaxRetries = 0
+	}
+
+	// Normalize the log level. An unrecognized value (typically a typo such as
+	// "debgu") would otherwise be silently treated as info and could hide the
+	// very diagnostics an operator was trying to enable, so surface it and fall
+	// back to info explicitly.
+	switch config.LogLevel {
+	case LogLevelDebug, LogLevelInfo, LogLevelWarn, LogLevelError:
+	default:
+		slog.Warn("Unknown log level; defaulting to info", "provided", string(config.LogLevel))
+		config.LogLevel = LogLevelInfo
 	}
 
 	return nil

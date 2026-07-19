@@ -6,6 +6,12 @@
 #   info --path <p>                   -> resolved device properties
 #   control --reload-rules            -> success (or $FAKE_DEV_DIR/udevadm_control_rc)
 #   trigger ...                       -> success (or $FAKE_DEV_DIR/udevadm_trigger_rc)
+#
+# The attribute walk resolves in priority order so multi-card scenarios can give
+# each card distinct attributes:
+#   1. $FAKE_DEV_DIR/udevadm_attr_walk_card<N>.txt  (per-card override)
+#   2. $FAKE_DEV_DIR/udevadm_attr_walk.txt          (shared override)
+#   3. a built-in single-USB-card default
 set -u
 
 dir="${FAKE_DEV_DIR:-}"
@@ -24,7 +30,12 @@ rc_from() {
 case "${1:-}" in
 info)
 	if [[ "$args" == *--attribute-walk* ]]; then
-		if [[ -n "$dir" && -f "$dir/udevadm_attr_walk.txt" ]]; then
+		# Derive the card number from the trailing .../cardN path argument.
+		card="${args##*/card}"
+		card="${card%% *}"
+		if [[ -n "$dir" && -f "$dir/udevadm_attr_walk_card${card}.txt" ]]; then
+			cat "$dir/udevadm_attr_walk_card${card}.txt"
+		elif [[ -n "$dir" && -f "$dir/udevadm_attr_walk.txt" ]]; then
 			cat "$dir/udevadm_attr_walk.txt"
 		else
 			cat <<-'EOF'

@@ -152,6 +152,125 @@ func TestDefaultTimeouts_Values(t *testing.T) {
 	}
 }
 
+func TestValidateConfig_ClampsNonPositiveTimeouts(t *testing.T) {
+	config := &Config{
+		UdevRulesPath:  "/etc/udev/rules.d",
+		MaxBackupCount: 10,
+		LogLevel:       LogLevelInfo,
+		Timeouts: ConfigurableTimeouts{
+			CommandExecution:  0,
+			RetryInterval:     -1 * time.Second,
+			RuleReloadWait:    0,
+			TriggerActionWait: 0,
+			LockAcquisition:   0,
+			GracefulShutdown:  0,
+		},
+		ConcurrencyOpts: ConcurrencyOptions{MaxWorkers: 4},
+	}
+
+	if err := validateConfig(config); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if config.Timeouts.CommandExecution != DefaultTimeouts.CommandExecution {
+		t.Errorf("CommandExecution = %v, want default %v",
+			config.Timeouts.CommandExecution, DefaultTimeouts.CommandExecution)
+	}
+	if config.Timeouts.RetryInterval != DefaultTimeouts.RetryInterval {
+		t.Errorf("RetryInterval = %v, want default %v",
+			config.Timeouts.RetryInterval, DefaultTimeouts.RetryInterval)
+	}
+	if config.Timeouts.RuleReloadWait != DefaultTimeouts.RuleReloadWait {
+		t.Errorf("RuleReloadWait = %v, want default", config.Timeouts.RuleReloadWait)
+	}
+	if config.Timeouts.TriggerActionWait != DefaultTimeouts.TriggerActionWait {
+		t.Errorf("TriggerActionWait = %v, want default", config.Timeouts.TriggerActionWait)
+	}
+}
+
+func TestValidateConfig_ClampsNegativeRetries(t *testing.T) {
+	config := &Config{
+		UdevRulesPath:  "/etc/udev/rules.d",
+		MaxBackupCount: 10,
+		LogLevel:       LogLevelInfo,
+		Timeouts:       DefaultTimeouts,
+		MaxRetries:     -5,
+		ConcurrencyOpts: ConcurrencyOptions{
+			MaxWorkers: 4,
+		},
+	}
+
+	if err := validateConfig(config); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if config.MaxRetries != 0 {
+		t.Errorf("MaxRetries = %d, want 0 after clamping", config.MaxRetries)
+	}
+}
+
+func TestValidateConfig_NormalizesUnknownLogLevel(t *testing.T) {
+	config := &Config{
+		UdevRulesPath:   "/etc/udev/rules.d",
+		MaxBackupCount:  10,
+		LogLevel:        LogLevel("debgu"), // typo
+		Timeouts:        DefaultTimeouts,
+		ConcurrencyOpts: ConcurrencyOptions{MaxWorkers: 4},
+	}
+
+	if err := validateConfig(config); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if config.LogLevel != LogLevelInfo {
+		t.Errorf("LogLevel = %q, want normalized to info", config.LogLevel)
+	}
+}
+
+func TestValidateConfig_PreservesValidLogLevels(t *testing.T) {
+	for _, level := range []LogLevel{LogLevelDebug, LogLevelInfo, LogLevelWarn, LogLevelError} {
+		config := &Config{
+			UdevRulesPath:   "/etc/udev/rules.d",
+			MaxBackupCount:  10,
+			LogLevel:        level,
+			Timeouts:        DefaultTimeouts,
+			ConcurrencyOpts: ConcurrencyOptions{MaxWorkers: 4},
+		}
+		if err := validateConfig(config); err != nil {
+			t.Fatalf("level %q: expected no error, got %v", level, err)
+		}
+		if config.LogLevel != level {
+			t.Errorf("valid level %q was altered to %q", level, config.LogLevel)
+		}
+	}
+}
+
+func TestIsUdevSafeValue(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		safe  bool
+	}{
+		{"alphanumeric", "SN123456ABC", true},
+		{"with dashes", "SER-001-USB", true},
+		{"with dots", "1.2.3", true},
+		{"empty", "", true},
+		{"double quote", `SN"123`, false},
+		{"backslash", `SN\123`, false},
+		{"trailing backslash", `SN123\`, false},
+		{"newline", "SN\n123", false},
+		{"carriage return", "SN\r123", false},
+		{"tab", "SN\t123", false},
+		{"null byte", "SN\x00123", false},
+		{"del char", "SN\x7f123", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isUdevSafeValue(tt.input); got != tt.safe {
+				t.Errorf("isUdevSafeValue(%q) = %v, want %v", tt.input, got, tt.safe)
+			}
+		})
+	}
+}
+
 func TestConstants(t *testing.T) {
 	if AppName != "usb-soundcard-mapper" {
 		t.Errorf("unexpected AppName: %s", AppName)

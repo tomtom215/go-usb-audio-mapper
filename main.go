@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"runtime/debug"
 	"strings"
 	"time"
 )
@@ -22,7 +23,21 @@ func main() {
 	os.Exit(run())
 }
 
-func run() int {
+func run() (exitCode int) {
+	// Last line of defense for an unattended field deployment: an unexpected
+	// panic must not surface as a raw stack trace with an ambiguous status.
+	// Capture it as structured data and exit with a distinct, non-zero code (2)
+	// so wrappers can tell an internal fault from an ordinary failure (1).
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("Recovered from panic",
+				"panic", fmt.Sprintf("%v", r),
+				"stack", string(debug.Stack()))
+			fmt.Fprintf(os.Stderr, "Fatal internal error: %v\n", r)
+			exitCode = 2
+		}
+	}()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

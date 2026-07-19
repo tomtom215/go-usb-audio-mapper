@@ -9,6 +9,7 @@ package main
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -113,6 +114,61 @@ func TestGetUSBSoundCards_VirtualKeptWhenNotIgnored(t *testing.T) {
 	}
 }
 
+func TestGetUSBSoundCards_MultipleDistinctCards(t *testing.T) {
+	// A field deployment often has several USB recorders attached at once. Each
+	// must be enumerated and named from its own attributes without collision.
+	scenario := installFakeBin(t)
+	fakeSysfs(t, "1", "2")
+	scenarioFile(t, scenario, "aplay_l.txt",
+		"**** List of PLAYBACK Hardware Devices ****\n"+
+			"card 0: PCH [HDA Intel PCH], device 0: ALC892 Analog [ALC892 Analog]\n"+
+			"card 1: Device [USB Audio Device], device 0: USB Audio [USB Audio]\n"+
+			"card 2: Recorder [USB Audio Recorder], device 0: USB Audio [USB Audio]\n")
+	scenarioFile(t, scenario, "udevadm_attr_walk_card1.txt",
+		`    KERNELS=="1-2.3"`+"\n"+
+			`    DRIVERS=="snd_usb_audio"`+"\n"+
+			`    ATTRS{idVendor}=="1234"`+"\n"+
+			`    ATTRS{idProduct}=="5678"`+"\n"+
+			`    ATTRS{serial}=="SN0001"`+"\n")
+	scenarioFile(t, scenario, "udevadm_attr_walk_card2.txt",
+		`    KERNELS=="3-1"`+"\n"+
+			`    DRIVERS=="snd_usb_audio"`+"\n"+
+			`    ATTRS{idVendor}=="abcd"`+"\n"+
+			`    ATTRS{idProduct}=="ef01"`+"\n"+
+			`    ATTRS{serial}=="SN0002"`+"\n")
+
+	cards, err := GetUSBSoundCards(context.Background(), newTestExecutor(), testConfig(t))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cards) != 2 {
+		t.Fatalf("expected 2 USB cards, got %d: %+v", len(cards), cards)
+	}
+
+	byVID := map[string]USBSoundCard{}
+	for _, c := range cards {
+		byVID[c.VendorID] = c
+		if err := c.Validate(); err != nil {
+			t.Errorf("card %s failed validation: %v", c.CardNumber, err)
+		}
+	}
+
+	c1, ok1 := byVID["1234"]
+	c2, ok2 := byVID["abcd"]
+	if !ok1 || !ok2 {
+		t.Fatalf("expected both VID 1234 and abcd, got %+v", byVID)
+	}
+	if c1.FriendlyName == c2.FriendlyName {
+		t.Errorf("distinct devices produced identical friendly names: %q", c1.FriendlyName)
+	}
+	if c1.FriendlyName != "usb_1234_5678_SN0001" {
+		t.Errorf("card1 FriendlyName = %q", c1.FriendlyName)
+	}
+	if c2.FriendlyName != "usb_abcd_ef01_SN0002" {
+		t.Errorf("card2 FriendlyName = %q", c2.FriendlyName)
+	}
+}
+
 func TestGetCardDetails_PopulatesAllFields(t *testing.T) {
 	installFakeBin(t)
 	fakeSysfs(t, "1")
@@ -129,6 +185,40 @@ func TestGetCardDetails_PopulatesAllFields(t *testing.T) {
 	}
 	if card.DevicePath != "/dev/snd/card1" {
 		t.Errorf("DevicePath = %q", card.DevicePath)
+	}
+}
+
+func TestGetCardDetails_UnsafeSerialUsesPortName(t *testing.T) {
+	scenario := installFakeBin(t)
+	fakeSysfs(t, "1")
+	// A serial containing a backslash survives extraction and sanitization but
+	// cannot be a udev match key, so the friendly name must derive from the
+	// physical port instead of the serial.
+	scenarioFile(t, scenario, "udevadm_attr_walk.txt",
+		`    KERNELS=="1-2.3"`+"\n"+
+			`    DRIVERS=="snd_usb_audio"`+"\n"+
+			`    ATTRS{idVendor}=="1234"`+"\n"+
+			`    ATTRS{idProduct}=="5678"`+"\n"+
+			"    ATTRS{serial}==\"SN\\123\"\n")
+
+	card, err := getCardDetails(context.Background(), newTestExecutor(), "1", testConfig(t))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if card.FriendlyName != "usb_1234_5678_port1_2_3" {
+		t.Errorf("FriendlyName = %q, want port-based name for unsafe serial", card.FriendlyName)
+	}
+
+	// The generated rule must fall back to the port and stay well-formed.
+	rule, err := createUdevRule(context.Background(), &card, "", testConfig(t))
+	if err != nil {
+		t.Fatalf("createUdevRule: %v", err)
+	}
+	if strings.Contains(rule.Content, "ATTRS{serial}") {
+		t.Errorf("unsafe serial leaked into rule match:\n%s", rule.Content)
+	}
+	if !strings.Contains(rule.Content, `KERNELS=="1-2.3*"`) {
+		t.Errorf("expected port-based matching in rule:\n%s", rule.Content)
 	}
 }
 

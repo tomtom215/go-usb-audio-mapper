@@ -71,7 +71,7 @@ func createUdevRule(ctx context.Context, card *USBSoundCard, customName string, 
 
 	// Rule 1: Priority rule for ACTION=="add" with full device attributes
 	switch {
-	case card.Serial != "" && !strings.Contains(card.Serial, ":"):
+	case hasUsableSerial(card.Serial):
 		fmt.Fprintf(&ruleBuilder, "SUBSYSTEM==\"sound\", ACTION==\"add\", ATTRS{idVendor}==\"%s\", ATTRS{idProduct}==\"%s\", ATTRS{serial}==\"%s\", ATTR{id}=\"%s\"\n",
 			card.VendorID, card.ProductID, card.Serial, deviceName)
 	case card.PhysicalPort != "":
@@ -84,7 +84,7 @@ func createUdevRule(ctx context.Context, card *USBSoundCard, customName string, 
 
 	// Rule 2: SOUND_INITIALIZED for after sound system is fully running
 	switch {
-	case card.Serial != "" && !strings.Contains(card.Serial, ":"):
+	case hasUsableSerial(card.Serial):
 		fmt.Fprintf(&ruleBuilder, "SUBSYSTEM==\"sound\", ENV{SOUND_INITIALIZED}==\"1\", ATTRS{idVendor}==\"%s\", ATTRS{idProduct}==\"%s\", ATTRS{serial}==\"%s\", ATTR{id}=\"%s\"\n",
 			card.VendorID, card.ProductID, card.Serial, deviceName)
 	case card.PhysicalPort != "":
@@ -169,7 +169,7 @@ func installUdevRule(_ context.Context, rule *UdevRule, config *Config, fileAcce
 
 	var backupPath string
 	if exists && config.BackupRules {
-		backupPath = rule.Path + ".bak." + time.Now().Format("20060102150405")
+		backupPath = uniqueTimestampedPath(rule.Path+".bak.", time.Now().Format("20060102150405"))
 
 		transaction.AddOperation(
 			func() error {
