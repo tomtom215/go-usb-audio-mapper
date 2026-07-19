@@ -270,3 +270,44 @@ func TestSafeFileAccess_CleanupAllLocks(t *testing.T) {
 	// Should not panic or error
 	fa.CleanupAllLocks()
 }
+
+func TestUniqueTimestampedPath_AvoidsCollisions(t *testing.T) {
+	dir := t.TempDir()
+	base := filepath.Join(dir, "89-usb-soundcard-1234-5678.rules.bak.")
+	const ts = "20260719120000"
+
+	// First call: nothing exists yet, so the plain timestamped path is returned.
+	p1 := uniqueTimestampedPath(base, ts)
+	if p1 != base+ts {
+		t.Fatalf("first path = %q, want %q", p1, base+ts)
+	}
+	if err := os.WriteFile(p1, []byte("one"), 0o644); err != nil {
+		t.Fatalf("seed p1: %v", err)
+	}
+
+	// Second call with the same timestamp must not collide with p1.
+	p2 := uniqueTimestampedPath(base, ts)
+	if p2 == p1 {
+		t.Fatalf("second path collided with first: %q", p2)
+	}
+	if p2 != base+ts+"_1" {
+		t.Fatalf("second path = %q, want %q", p2, base+ts+"_1")
+	}
+	if err := os.WriteFile(p2, []byte("two"), 0o644); err != nil {
+		t.Fatalf("seed p2: %v", err)
+	}
+
+	// Third call increments again, so no existing backup is ever overwritten.
+	p3 := uniqueTimestampedPath(base, ts)
+	if p3 != base+ts+"_2" {
+		t.Fatalf("third path = %q, want %q", p3, base+ts+"_2")
+	}
+
+	// The first two backups are still intact and distinct.
+	if b, _ := os.ReadFile(p1); string(b) != "one" {
+		t.Errorf("p1 content changed: %q", b)
+	}
+	if b, _ := os.ReadFile(p2); string(b) != "two" {
+		t.Errorf("p2 content changed: %q", b)
+	}
+}

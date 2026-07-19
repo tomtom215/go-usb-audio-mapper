@@ -75,6 +75,14 @@ func (ce *CommandExecutor) ExecuteCommandWithTimeoutAndRetry(
 		retryCount int
 	)
 
+	// Defensive clamp: a negative retry budget (from a misconfigured caller)
+	// would skip the loop entirely and return an error wrapping a nil cause.
+	// Zero means exactly one attempt with no retries. Config validation already
+	// clamps the CLI value, so this only guards direct callers.
+	if maxRetries < 0 {
+		maxRetries = 0
+	}
+
 	cmdID := fmt.Sprintf("cmd_%s_%d", command, time.Now().UnixNano())
 
 	for retryCount = 0; retryCount <= maxRetries; retryCount++ {

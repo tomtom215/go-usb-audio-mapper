@@ -126,6 +126,51 @@ func TestInstallUdevRule_BackupOnOverwrite(t *testing.T) {
 	}
 }
 
+func TestInstallUdevRule_RepeatedBackupsDoNotCollide(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.BackupRules = true
+	cfg.ForceOverwrite = true
+	fakeModprobeDir(t, false)
+
+	card := sampleUSBCard()
+	rule, err := createUdevRule(context.Background(), &card, "my_audio", cfg)
+	if err != nil {
+		t.Fatalf("createUdevRule: %v", err)
+	}
+
+	// Two installs in quick succession (likely within the same clock-second),
+	// each overwriting a distinct pre-existing rule. Both prior versions must be
+	// preserved as separate backups — neither may be silently overwritten.
+	seeds := []string{"# version one\n", "# version two\n"}
+	for _, seed := range seeds {
+		if err := os.WriteFile(rule.Path, []byte(seed), 0o644); err != nil {
+			t.Fatalf("seed rule with %q: %v", seed, err)
+		}
+		if err := installUdevRule(context.Background(), rule, cfg, newFileAccess()); err != nil {
+			t.Fatalf("installUdevRule: %v", err)
+		}
+	}
+
+	backups, _ := filepath.Glob(rule.Path + ".bak.*")
+	if len(backups) != 2 {
+		t.Fatalf("expected 2 distinct backups, got %d: %v", len(backups), backups)
+	}
+
+	found := map[string]bool{}
+	for _, b := range backups {
+		data, err := os.ReadFile(b) // #nosec G304 -- test-controlled temp path
+		if err != nil {
+			t.Fatalf("read backup %s: %v", b, err)
+		}
+		found[string(data)] = true
+	}
+	for _, seed := range seeds {
+		if !found[seed] {
+			t.Errorf("backup for %q was lost (overwritten); backups hold: %v", seed, found)
+		}
+	}
+}
+
 func TestInstallUdevRule_SkipsIdenticalContent(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.BackupRules = false

@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -147,6 +148,44 @@ func TestCommandExecutor_ExecuteCommand_WithRetries(t *testing.T) {
 	_, err := executor.ExecuteCommand(ctx, "false")
 	if err == nil {
 		t.Fatal("expected error from 'false' command")
+	}
+}
+
+func TestCommandExecutor_NegativeRetriesStillExecutesOnce(t *testing.T) {
+	// A negative retry budget must be clamped so the command is still attempted
+	// once and the returned error wraps the real failure, not a nil cause.
+	rt := NewResourceTracker()
+	executor := &CommandExecutor{
+		DefaultTimeout:  5 * time.Second,
+		MaxRetries:      -3,
+		RetryInterval:   10 * time.Millisecond,
+		ResourceTracker: rt,
+	}
+
+	_, err := executor.ExecuteCommand(context.Background(), "false")
+	if err == nil {
+		t.Fatal("expected a non-nil error from 'false' with negative retries")
+	}
+	if strings.Contains(err.Error(), "%!w(<nil>)") {
+		t.Errorf("error wraps a nil cause, indicating the command never ran: %v", err)
+	}
+}
+
+func TestCommandExecutor_ZeroRetriesRunsOnce(t *testing.T) {
+	rt := NewResourceTracker()
+	executor := &CommandExecutor{
+		DefaultTimeout:  5 * time.Second,
+		MaxRetries:      0,
+		RetryInterval:   10 * time.Millisecond,
+		ResourceTracker: rt,
+	}
+
+	out, err := executor.ExecuteCommand(context.Background(), "echo", "ok")
+	if err != nil {
+		t.Fatalf("expected success with zero retries, got %v", err)
+	}
+	if out != "ok\n" {
+		t.Errorf("output = %q, want %q", out, "ok\n")
 	}
 }
 

@@ -269,6 +269,84 @@ func TestCreateUdevRule_PCILikeSerialUsesPort(t *testing.T) {
 	}
 }
 
+func TestCreateUdevRule_UnsafeSerialFallsBackToPort(t *testing.T) {
+	// A serial containing a backslash cannot be embedded in a udev match without
+	// risking a malformed rule. With a physical port available, the generator
+	// must fall back to KERNELS matching and must not emit an ATTRS{serial}
+	// clause at all.
+	card := USBSoundCard{
+		CardNumber:   "1",
+		VendorID:     "1234",
+		ProductID:    "5678",
+		Serial:       `SN\123`,
+		PhysicalPort: "1-2.3",
+		Vendor:       "Test",
+		Product:      "Audio",
+		FriendlyName: "default",
+	}
+
+	config := Config{UdevRulesPath: "/etc/udev/rules.d", Timeouts: DefaultTimeouts}
+	rule, err := createUdevRule(context.Background(), &card, "safe_name", &config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if strings.Contains(rule.Content, "ATTRS{serial}") {
+		t.Errorf("unsafe serial must not appear as a match key:\n%s", rule.Content)
+	}
+	if !strings.Contains(rule.Content, `KERNELS=="1-2.3*"`) {
+		t.Errorf("expected fallback to physical-port matching:\n%s", rule.Content)
+	}
+	assertWellFormedRuleBody(t, rule.Content)
+}
+
+func TestCreateUdevRule_UnsafeSerialNoPortFallsBackToVIDPID(t *testing.T) {
+	// A backslash serial and no physical port: the generator must fall all the
+	// way back to VID:PID matching and never place the serial in a match clause.
+	card := USBSoundCard{
+		CardNumber:   "1",
+		VendorID:     "1234",
+		ProductID:    "5678",
+		Serial:       `SN\123`,
+		Vendor:       "Test",
+		Product:      "Audio",
+		FriendlyName: "default",
+	}
+
+	config := Config{UdevRulesPath: "/etc/udev/rules.d", Timeouts: DefaultTimeouts}
+	rule, err := createUdevRule(context.Background(), &card, "safe_name", &config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if strings.Contains(rule.Content, "ATTRS{serial}") {
+		t.Errorf("unsafe serial must not appear as a match key:\n%s", rule.Content)
+	}
+	if strings.Contains(rule.Content, "KERNELS==") {
+		t.Errorf("no physical port available, KERNELS matching should be absent:\n%s", rule.Content)
+	}
+	assertWellFormedRuleBody(t, rule.Content)
+}
+
+// assertWellFormedRuleBody checks the invariant that every non-comment, non-empty
+// line of a generated rule has a balanced, even number of double quotes. An
+// injected quote or backslash from an attribute value would break this.
+func assertWellFormedRuleBody(t *testing.T, content string) {
+	t.Helper()
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if n := strings.Count(line, `"`); n%2 != 0 {
+			t.Errorf("rule line has unbalanced quotes (%d): %q", n, line)
+		}
+		if strings.Contains(line, `\`) {
+			t.Errorf("rule match line contains a raw backslash: %q", line)
+		}
+	}
+}
+
 func TestCreateUdevRule_Header(t *testing.T) {
 	card := USBSoundCard{
 		CardNumber:   "1",

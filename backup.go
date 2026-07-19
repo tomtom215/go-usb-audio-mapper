@@ -74,9 +74,9 @@ func backupExistingUdevRules(card *USBSoundCard, config *Config, fileAccess *Saf
 				continue
 			}
 
-			timestamp := time.Now().Format("20060102150405")
-			backupFile := filepath.Join(backupDir, fmt.Sprintf("%s%s_%s",
-				backupPrefix, filepath.Base(match), timestamp))
+			backupFileBase := filepath.Join(backupDir, fmt.Sprintf("%s%s_",
+				backupPrefix, filepath.Base(match)))
+			backupFile := uniqueTimestampedPath(backupFileBase, time.Now().Format("20060102150405"))
 
 			slog.Info("Backing up existing rule file", "source", match, "backup", backupFile)
 

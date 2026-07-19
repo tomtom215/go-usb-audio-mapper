@@ -71,6 +71,9 @@ run_case "help/usage" 0 'Usage:' -- -h
 # Invalid vendor ID is rejected by config validation before anything else.
 run_case "invalid vendor id" 1 'invalid vendor ID' -- --vendor-id ZZZZ
 
+# Invalid product ID is likewise rejected up front.
+run_case "invalid product id" 1 'invalid product ID' -- --product-id NOPE
+
 # Scenario: only a non-USB onboard card is present, so detection finds no USB
 # sound cards and the tool reports that cleanly.
 cat >"$FAKE_DEV_DIR/aplay_l.txt" <<-'EOF'
@@ -84,6 +87,19 @@ run_case "list (no cards)" 0 'No USB sound cards found' -- --list --retries 0
 # Dry run needs no privileges and ends cleanly when no USB card is present.
 run_case "dry-run non-interactive" 0 'No USB sound cards found' -- \
 	--non-interactive --vendor-id 1234 --product-id 5678 --dry-run --retries 0
+
+# A mistyped, non-positive command timeout must not brick a field deployment:
+# validation clamps it to the default and the run still completes cleanly.
+run_case "zero command-timeout is clamped" 0 'No USB sound cards found' -- \
+	--list --command-timeout 0 --retries 0
+
+# A negative retry count is clamped to zero rather than skipping execution.
+run_case "negative retries is clamped" 0 'No USB sound cards found' -- \
+	--list --retries=-1
+
+# An unknown log level is normalized to info instead of aborting the run.
+run_case "unknown log level is normalized" 0 'No USB sound cards found' -- \
+	--list --log-level nonsense --retries 0
 
 # When aplay advertises a USB card that is absent from /sys (card 99 exists in no
 # real environment), the tool reports the inconsistency and exits non-zero.

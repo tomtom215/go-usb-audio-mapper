@@ -347,6 +347,30 @@ func TestSanitizeSerial(t *testing.T) {
 	}
 }
 
+func TestHasUsableSerial(t *testing.T) {
+	tests := []struct {
+		name   string
+		serial string
+		usable bool
+	}{
+		{"normal serial", "SN123456ABC", true},
+		{"serial with dashes", "SER-001", true},
+		{"empty serial", "", false},
+		{"pci-path-like serial", "0000:00:1a.0", false},
+		{"serial with any colon", "AB:CD", false},
+		{"serial with backslash", `SN\123`, false},
+		{"serial with quote", `SN"123`, false},
+		{"serial with control char", "SN\t123", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := hasUsableSerial(tt.serial); got != tt.usable {
+				t.Errorf("hasUsableSerial(%q) = %v, want %v", tt.serial, got, tt.usable)
+			}
+		})
+	}
+}
+
 func TestIsVirtualDriver(t *testing.T) {
 	tests := []struct {
 		driver   string

@@ -194,6 +194,24 @@ func atomicWriteFile(filename string, data []byte, perm fs.FileMode, fileAccess 
 	return nil
 }
 
+// uniqueTimestampedPath returns a path of the form <base><timestamp>, appending
+// a numeric counter (<base><timestamp>_N) if that path already exists so two
+// backups created within the same clock-second never silently overwrite one
+// another and lose a known-good rule file. It is intended for the single-process,
+// sequential backup paths in this tool; the existence check is a best-effort
+// collision avoidance, not a concurrency guarantee. The loop is bounded so a
+// path that always appears to exist cannot spin forever.
+func uniqueTimestampedPath(base, timestamp string) string {
+	candidate := base + timestamp
+	for i := 1; i < 10000; i++ {
+		if exists, _ := pathExists(candidate); !exists {
+			return candidate
+		}
+		candidate = fmt.Sprintf("%s%s_%d", base, timestamp, i)
+	}
+	return candidate
+}
+
 // fileExists checks if a file exists and is not a directory
 func fileExists(filename string) (bool, error) {
 	if !pathSafeRegex.MatchString(filename) {

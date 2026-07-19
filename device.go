@@ -165,7 +165,7 @@ func (dr *DeviceRegistry) UpdateDeviceStatus(card *USBSoundCard, status DeviceSt
 
 // generateDeviceKey creates a unique key for a device
 func (dr *DeviceRegistry) generateDeviceKey(card *USBSoundCard) string {
-	if card.Serial != "" && !strings.Contains(card.Serial, ":") {
+	if hasUsableSerial(card.Serial) {
 		return fmt.Sprintf("%s:%s:%s", card.VendorID, card.ProductID, card.Serial)
 	} else if card.PhysicalPort != "" {
 		return fmt.Sprintf("%s:%s:%s", card.VendorID, card.ProductID, card.PhysicalPort)
@@ -350,7 +350,7 @@ func getCardDetails(ctx context.Context, executor *CommandExecutor, cardNumber s
 	}
 
 	switch {
-	case card.Serial != "" && !strings.Contains(card.Serial, ":"):
+	case hasUsableSerial(card.Serial):
 		cleanSerial := cleanupName(card.Serial)
 		card.FriendlyName = fmt.Sprintf("usb_%s_%s_%s", card.VendorID, card.ProductID, cleanSerial)
 	case card.PhysicalPort != "":
@@ -368,6 +368,17 @@ func getCardDetails(ctx context.Context, executor *CommandExecutor, cardNumber s
 // sanitizeSerial sanitizes a serial number to prevent security issues
 func sanitizeSerial(serial string) string {
 	return unsafeCharsRegex.ReplaceAllString(serial, "_")
+}
+
+// hasUsableSerial reports whether a card's serial is a good stable match key for
+// a udev rule. A serial qualifies only when it is present, is not a PCI-path
+// style fallback (those contain a ':' and are not unique per device), and can be
+// embedded verbatim in a udev rule without corrupting it. When it returns false
+// the caller falls back to the physical USB port, which is always representable,
+// so a device with an unusual serial still gets a working, well-formed rule
+// rather than one udev would silently reject.
+func hasUsableSerial(serial string) bool {
+	return serial != "" && !strings.Contains(serial, ":") && isUdevSafeValue(serial)
 }
 
 // isVirtualDriver checks if a driver name indicates a virtual audio device
