@@ -13,7 +13,7 @@ import (
 // Application constants
 const (
 	AppName    = "usb-soundcard-mapper"
-	AppVersion = "2.1.0"
+	AppVersion = "2.2.0"
 
 	udevRulesDir   = "/etc/udev/rules.d"
 	maxBackupCount = 10          // Maximum number of backups to keep per device

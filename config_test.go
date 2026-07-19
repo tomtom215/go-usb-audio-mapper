@@ -275,7 +275,7 @@ func TestConstants(t *testing.T) {
 	if AppName != "usb-soundcard-mapper" {
 		t.Errorf("unexpected AppName: %s", AppName)
 	}
-	if AppVersion != "2.1.0" {
+	if AppVersion != "2.2.0" {
 		t.Errorf("unexpected AppVersion: %s", AppVersion)
 	}
 	if maxBackupCount != 10 {
